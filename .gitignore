@@ -1,0 +1,27 @@
+# FORMATS
+*.csv
+*.json
+*.txt
+
+# FOLDERS
+tst/
+datasets/
+pickles/
+learning/
+json/
+help/
+dict/
+__pycache__/
+catboost_info/
+mlruns/
+models/
+sql/
+notebooks/
+custom_functions/
+
+# FILES
+.env
+.venv
+.private
+.vscode
+.main_venv
