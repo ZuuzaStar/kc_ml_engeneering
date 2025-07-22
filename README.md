@@ -1,0 +1,1 @@
+'Here will be a structured info about the project'

@@ -18,6 +18,7 @@ models/
 sql/
 notebooks/
 custom_functions/
+examples/
 
 # FILES
 .env
