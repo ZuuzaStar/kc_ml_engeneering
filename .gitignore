@@ -26,3 +26,4 @@ examples/
 .private
 .vscode
 .main_venv
+.DS_store
