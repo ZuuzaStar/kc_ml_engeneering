@@ -1,0 +1,5 @@
+Flask
+bcrypt
+dataclasses
+dotenv
+psycopg2-binary

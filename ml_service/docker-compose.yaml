@@ -26,29 +26,37 @@ services:
       - app-network
 
   rabbitmq:
-    image: rabbitmq:management
+    image: rabbitmq:3.12-management
     ports:
       - "15672:15672"
       - "5672:5672"
     volumes:
-      - ./rabbitmq/data:/var/lib/rabbitmq
+      - rabbitmq_volume:/var/lib/rabbitmq
     restart: on-failure
+    env_file:
+      - .env
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
 
   database:
-    image: postgres:latest
+    image: postgres:16
     ports:
       - "5432:5432"
     volumes:
-      - ./database/data:/var/lib/postgresql/data
+      - postgres_volume:/var/lib/postgresql/data
     networks:
       - app-network
+    env_file:
+      - .env
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+
+volumes:
+  postgres_volume:
+  rabbitmq_volume:
 
 networks:
   app-network:
