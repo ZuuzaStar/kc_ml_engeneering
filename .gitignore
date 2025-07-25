@@ -1,7 +1,6 @@
 # FORMATS
 *.csv
 *.json
-*.txt
 
 # FOLDERS
 tst/
