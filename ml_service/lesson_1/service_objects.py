@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Protocol
+from typing import List, Dict, Optional
 import re
 from datetime import datetime
 from abc import ABC, abstractmethod
@@ -240,7 +240,7 @@ class MovieRecommender(MLModel):
             user=user,
             input_text=input_text,
             results=model_prediction,
-            cost=float(os.getenv("PREDICTION_COST"))
+            cost=float(os.getenv("PREDICTION_COST", 10))
         )
         user.prediction_history.add(prediction)
         return model_prediction
@@ -352,13 +352,13 @@ class MovieService:
                 user=user,
                 input_text=input_text,
                 results=list(),
-                cost=float(os.getenv("PREDICTION_COST")),
+                cost=float(os.getenv("PREDICTION_COST", 10)),
                 is_success=False,
                 error_code=1
             )
 
-        # Проверка баланса и оздание записи о запросе
-        if user.wallet.balance < float(os.getenv("PREDICTION_COST")) and not user.is_admin:
+        # Проверка баланса и создание записи о запросе
+        if user.wallet.balance < float(os.getenv("PREDICTION_COST", 10)) and not user.is_admin:
             user.prediction_history.add(prediction)
             raise ValueError("Недостаточно средств на балансе")
          
@@ -376,7 +376,7 @@ class MovieService:
                 transaction = Transaction(
                     id=len(user.wallet.transactions) + 1,
                     user=user,
-                    amount=-float(os.getenv("PREDICTION_COST")),
+                    amount=-float(os.getenv("PREDICTION_COST", 10)),
                     type="prediction",
                     description=f"Запрос рекомендаций #{prediction.id}"
                 )
