@@ -1,6 +1,5 @@
 from typing import List
 from abc import ABC, abstractmethod
-from dotenv import load_dotenv
 import os
 from movie import Movie
 from user import User

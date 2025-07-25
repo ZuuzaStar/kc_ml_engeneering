@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List
 from datetime import datetime
 from movie import Movie
 from user import User
+
 
 @dataclass
 class Prediction:

@@ -1,11 +1,5 @@
-from dataclasses import dataclass, field
-from typing import List, Dict, Optional
-import re
-from datetime import datetime
-from abc import ABC, abstractmethod
-from dotenv import load_dotenv
-import os
-import bcrypt
+from dataclasses import dataclass
+
 
 @dataclass
 class Movie:
