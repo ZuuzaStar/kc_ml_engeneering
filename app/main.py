@@ -2,11 +2,11 @@ from typing import List, Dict, Optional
 from dotenv import load_dotenv
 import os
 import bcrypt
-from model.recommender import MovieRecommender
-from model.user import User
-from model.movie import Movie
-from model.transaction import Transaction
-from model.prediction import Prediction
+from models.recommender import MovieRecommender
+from models.user import User
+from models.movie import Movie
+from models.transaction import Transaction
+from models.prediction import Prediction
 
 load_dotenv() # Загружаем глобальные переменные
 

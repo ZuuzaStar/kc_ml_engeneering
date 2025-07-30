@@ -13,7 +13,6 @@ dict/
 __pycache__/
 catboost_info/
 mlruns/
-models/
 sql/
 notebooks/
 custom_functions/
