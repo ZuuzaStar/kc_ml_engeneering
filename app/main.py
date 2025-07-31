@@ -3,10 +3,12 @@ from dotenv import load_dotenv
 import os
 import bcrypt
 from models.recommender import MovieRecommender
-from models.user import User
+from models.user import User, Admin
 from models.movie import Movie
 from models.transaction import Transaction
 from models.prediction import Prediction
+from database.database import engine
+from sqlmodel import Session, select
 
 load_dotenv() # Загружаем глобальные переменные
 
@@ -23,6 +25,110 @@ class MovieService:
         self.users: Dict[int, User] = {}
         self.movies: Dict[int, Movie] = {}
         self.recomender: Optional[MovieRecommender] = None
+
+    def initialize_database(self) -> None:
+        """
+        Инициализация базы данных стандартными данными:
+        - Демо пользователь
+        - Демо администратор  
+        - Базовые фильмы
+        """
+        print("Инициализация базы данных...")
+        
+        # Создаем демо данные
+        self._create_demo_users()
+        self._create_demo_movies()
+        self._setup_recommender()
+        
+        print("База данных инициализирована успешно!")
+
+    def _create_demo_users(self) -> None:
+        """Создание демо пользователей"""
+        with Session(engine) as session:
+            # Проверяем, существуют ли уже пользователи
+            existing_users = session.exec(select(User)).first()
+            if existing_users:
+                print("Демо данные уже существуют")
+                return
+            
+            # Создаем демо пользователя
+            user_password_hash = bcrypt.hashpw("user123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            demo_user = User(
+                email="user@example.com",
+                password_hash=user_password_hash,
+                is_admin=False,
+                balance=100.0
+            )
+            session.add(demo_user)
+            
+            # Создаем демо администратора
+            admin_password_hash = bcrypt.hashpw("admin123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            demo_admin = Admin(
+                email="admin@example.com",
+                password_hash=admin_password_hash,
+                is_admin=True,
+                balance=1000.0
+            )
+            session.add(demo_admin)
+            
+            session.commit()
+            print("Демо пользователи созданы")
+
+    def _create_demo_movies(self) -> None:
+        """Создание демо фильмов"""
+        demo_movies_data = [
+            {
+                "title": "The Matrix",
+                "description": "Компьютерный хакер Нео узнает о шокирующей правде: все, что он считал реальностью, является всего лишь Иллюзией.",
+                "cover_image_url": "https://example.com/matrix.jpg"
+            },
+            {
+                "title": "Inception",
+                "description": "Профессионал по проникновению в сны получает новое задание:植入 и извлечение идеи из подсознания.",
+                "cover_image_url": "https://example.com/inception.jpg"
+            },
+            {
+                "title": "Interstellar",
+                "description": "Ученый Купер решает отправиться в путешествие, чтобы спасти человечество от вымирания.",
+                "cover_image_url": "https://example.com/interstellar.jpg"
+            },
+            {
+                "title": "The Dark Knight",
+                "description": "Бэтмен сталкивается со сложным выбором между анархией и порядком, когда Джокер устраивает хаос в Готэме.",
+                "cover_image_url": "https://example.com/darkknight.jpg"
+            },
+            {
+                "title": "Pulp Fiction",
+                "description": "Несколько связанных историй о мафии, боксерах и гангстерах в стиле нелинейного повествования.",
+                "cover_image_url": "https://example.com/pulpfiction.jpg"
+            }
+        ]
+        
+        with Session(engine) as session:
+            # Проверяем, существуют ли уже фильмы
+            existing_movies = session.exec(select(Movie)).first()
+            if existing_movies:
+                print("Демо фильмы уже существуют")
+                return
+            
+            # Создаем демо фильмы
+            for movie_data in demo_movies_data:
+                movie = Movie(**movie_data)
+                session.add(movie)
+            
+            session.commit()
+            print(f"Создано {len(demo_movies_data)} демо фильмов")
+
+    def _setup_recommender(self) -> None:
+        """Настройка рекомендательной системы"""
+        with Session(engine) as session:
+            # Получаем все фильмы из базы
+            movies = session.exec(select(Movie)).all()
+            if movies:
+                self.recomender = MovieRecommender(movies)
+                print("Рекомендательная система инициализирована")
+            else:
+                print("Нет фильмов для рекомендательной системы")
 
     def _hash_password(self, password: str) -> str:
         return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
