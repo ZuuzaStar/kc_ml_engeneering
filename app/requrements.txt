@@ -4,6 +4,7 @@ Flask==3.0.3
 psycopg2-binary==2.9.3
 fastapi==0.116.1
 pydantic==2.10.6
+pydantic_settings==2.8.1
 uvicorn==0.16.0
 requests==2.27.1
 sqlalchemy==2.0.42
