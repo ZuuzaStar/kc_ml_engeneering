@@ -23,15 +23,3 @@ class Movie(SQLModel, table=True):
 
     # Relationships
     predictions: List["Prediction"] = Relationship(back_populates="movies")
-        
-    def change_title(self, new_title: str):
-        """Возможность исправлять ошибки в названии"""
-        if len(new_title) < 1:
-            raise ValueError("Название фильма должно быть не короче одного символа")
-        self.title = new_title
-    
-    def change_description(self, new_description: str):
-        """Возможность исправлять ошибки в описании"""
-        if len(new_description) < 10:
-            raise ValueError("Описание фильма не должно быть короче 10 символов")
-        self.description = new_description
