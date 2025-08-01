@@ -14,7 +14,7 @@ class Movie(SQLModel, table=True):
         id (int): Уникальный идентификатор фильма
         title (str): Название фильма
         description (str): Описание фильма
-        cover_image_url (str): URL изображения обложки фильма
+        cover_image_url (str): URL обложки фильма
     """
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str = Field(min_length=1, max_length=255)

@@ -1,7 +1,7 @@
 from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime
 from typing import Optional, TYPE_CHECKING
-from constants import TransactionType, TransactionCost
+from models.constants import TransactionType
 
 if TYPE_CHECKING:
     from user import User
@@ -16,15 +16,15 @@ class Transaction(SQLModel, table=True):
         id (int): Уникальный идентификатор транзакции
         user_id (int): ID юзера, по которому проходит транзакция
         wallet_id (int): ID Кошелька юзера
-        amount (str): Положительное значение - пополнение, отрицательное - списание
-        type (str): "deposit" - пополненик, "prediction" - списание, "admin_adjustment" - пополнение с правами админа
+        amount (float): Положительное значение - пополнение, отрицательное - списание
+        type (TransactionType): Тип транзакции (DEPOSIT, WITHDRAWAL, PREDICTION, ADMIN_ADJUSTMENT)
         description (str): Описание транзакции
         timestamp (datetime): Временная метка транзакции
     """
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", index=True)
     wallet_id: int = Field(foreign_key="wallet.id", index=True)
-    amount: TransactionCost = Field()
+    amount: float = Field(default=0.0)
     type: TransactionType = Field()
     description: str = Field(min_length=1, max_length=500)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
@@ -32,13 +32,3 @@ class Transaction(SQLModel, table=True):
     # Relationships
     wallet: "Wallet" = Relationship(back_populates="transactions")
     user: "User" = Relationship()
-    
-
-    def __post_init__(self) -> None:
-        self._validate_type()
-        self._validate_description()
-
-    def _validate_type(self) -> None:
-        """Проверяет тип события"""
-        if not TransactionType.is_valid_type(self.type):
-            raise ValueError("Неизвестный тип транзакции")
