@@ -1,6 +1,7 @@
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
+from constants import TransactionCost
 
 if TYPE_CHECKING:
     from user import User
@@ -40,9 +41,7 @@ class Prediction(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", index=True)
     input_text: str = Field(min_length=10, max_length=2000)
-    cost: float = Field(default=0.0)
-    is_success: bool = Field(default=True)
-    error_code: int = Field(default=0)
+    cost: TransactionCost = Field()
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships

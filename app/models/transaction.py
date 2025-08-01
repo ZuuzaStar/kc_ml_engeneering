@@ -1,10 +1,11 @@
 from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime
-import os
 from typing import Optional, TYPE_CHECKING
+from constants import TransactionType, TransactionCost
 
 if TYPE_CHECKING:
-    from user import User, Wallet
+    from user import User
+    from wallet import Wallet
 
 
 class Transaction(SQLModel, table=True):
@@ -23,8 +24,8 @@ class Transaction(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", index=True)
     wallet_id: int = Field(foreign_key="wallet.id", index=True)
-    amount: float = Field(default=0.0)
-    type: str = Field(max_length=50)
+    amount: TransactionCost = Field()
+    type: TransactionType = Field()
     description: str = Field(min_length=1, max_length=500)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
@@ -39,6 +40,5 @@ class Transaction(SQLModel, table=True):
 
     def _validate_type(self) -> None:
         """Проверяет тип события"""
-        allowed_types = os.getenv("ACTUAL_TRANSACTION_TYPES", "").split(",")
-        if self.type not in allowed_types:
+        if not TransactionType.is_valid_type(self.type):
             raise ValueError("Неизвестный тип транзакции")

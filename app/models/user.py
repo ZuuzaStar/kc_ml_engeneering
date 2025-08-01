@@ -2,34 +2,14 @@ from sqlmodel import SQLModel, Field, Relationship
 from typing import List, Optional
 from datetime import datetime
 import re
-import bcrypt
 from typing import TYPE_CHECKING
+from constants import TransactionType, TransactionCost
 
 if TYPE_CHECKING:
     from prediction import Prediction
     from transaction import Transaction
+    from wallet import Wallet
 
-
-class Wallet(SQLModel, table=True):
-    """
-    Класс для представления кошелька пользователя.
-    
-    Attributes:
-        id (int): ID кошелька
-        balance (float): Текущий баланс средств
-        transactions (List["Transaction"]): История транзакций
-        created_at (datetime): Дата и время создания кошелька
-    """
-    id: Optional[int] = Field(default=None, primary_key=True)
-    balance: float = Field(default=0.0)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-    # Relationships
-    transactions: List["Transaction"] = Relationship(back_populates="wallet")
-
-    def make_transaction(self, transaction: "Transaction"):
-        self.transactions.append(transaction)
-        self.balance += transaction.amount
 
 class User(SQLModel, table=True):
     """
@@ -62,11 +42,6 @@ class User(SQLModel, table=True):
         """Проверяет что email похож на email"""
         if not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", self.email):
             raise ValueError("Некорректный email")
-    
-    def validate_password(self, password: str):
-        """Проверяет что переданный пароль - верный"""
-        if not bcrypt.checkpw(password.encode("utf-8"), self.password_hash.encode("utf-8")):
-            raise ValueError("Некорректный пароль")
         
 class Admin(User):
     """
@@ -84,8 +59,8 @@ class Admin(User):
             id=len(user.wallet.transactions) + 1,
             user_id=user.id,
             wallet_id=user.wallet.id,
-            amount=amount,
-            type="admin_adjustment",
+            amount=TransactionCost(amount),
+            type=TransactionType.ADMIN_ADJUSTMENT,
             description=description
         )
         user.wallet.make_transaction(transaction)
