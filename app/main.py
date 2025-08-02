@@ -7,6 +7,6 @@ from services.crud.movie_service import MovieService
 
 
 if __name__ == "__main__":
-    # MovieService().initialize_database()
+    MovieService().initialize_database()
     settings = get_settings()
     print(settings)

@@ -3,7 +3,8 @@ bcrypt==4.3.0
 Flask==3.0.3
 fastapi==0.116.1
 pydantic==2.10.6
-pydantic_settings==2.8.1
+pydantic-settings==2.10.1
 uvicorn==0.16.0
 requests==2.27.1
 sqlalchemy==2.0.42
+sqlmodel==0.0.24

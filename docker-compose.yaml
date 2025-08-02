@@ -34,7 +34,7 @@ services:
       - rabbitmq_volume:/var/lib/rabbitmq
     restart: on-failure
     env_file:
-      - .env
+      - ./app/.env
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
@@ -48,7 +48,7 @@ services:
     networks:
       - app-network
     env_file:
-      - .env
+      - ./app/.env
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}

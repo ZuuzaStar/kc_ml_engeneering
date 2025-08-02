@@ -4,7 +4,6 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # Database settings
-    POSTGRES_DB: Optional[str] = None
     POSTGRES_HOST: Optional[str] = None
     POSTGRES_PORT: Optional[int] = None
     POSTGRES_USER: Optional[str] = None
@@ -23,11 +22,11 @@ class Settings(BaseSettings):
     
     @property
     def DATABASE_URL_asyncpg(self):
-        return f'postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}'
+        return f'postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_NAME}'
     
     @property
     def DATABASE_URL_psycopg(self):
-        return f'postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}'
+        return f'postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_NAME}'
     
     model_config = SettingsConfigDict(
         env_file="app/.env",
@@ -37,7 +36,7 @@ class Settings(BaseSettings):
     
     def validate(self) -> None:
         """Validate critical configuration settings"""
-        if not all([self.POSTGRES_HOST, self.POSTGRES_USER, self.POSTGRES_PASSWORD, self.POSTGRES_DB]):
+        if not all([self.POSTGRES_HOST, self.POSTGRES_USER, self.POSTGRES_PASSWORD, self.POSTGRES_NAME]):
             raise ValueError("Missing required database configuration")
 
 @lru_cache()

@@ -3,6 +3,8 @@ from models.user import User
 from models.transaction import Transaction
 from services.crud.wallet import make_transaction
 from models.constants import TransactionType, TransactionCost
+from sqlmodel import Session, select
+from typing import List
 
 
 def validate_password(user: User, password: str):
@@ -29,3 +31,22 @@ def adjust_balance(user: User, target_user: User, amount: float, description: st
             description=description
         )
     )
+
+def get_all_users(session: Session) -> List[User]:
+    """
+    Retrieve all users with their events.
+    
+    Args:
+        session: Database session
+    
+    Returns:
+        List[User]: List of all users
+    """
+    try:
+        statement = select(User).options(
+            select(User)
+        )
+        users = session.exec(statement).all()
+        return users
+    except Exception as e:
+        raise
