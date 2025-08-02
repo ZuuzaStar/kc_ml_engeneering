@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routes.home import home_route
 from routes.user import user_route
-from routes.event import event_router
+from app.routes.transaction import event_router
 from database.database import init_db
 from database.config import get_settings
 import uvicorn
