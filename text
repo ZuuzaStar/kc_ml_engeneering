@@ -1,0 +1,44 @@
+app
+├── .env
+├── .env.template
+├── Dockerfile
+├── api.py
+├── database
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-38.pyc
+│   │   ├── config.cpython-38.pyc
+│   │   └── database.cpython-38.pyc
+│   ├── config.py
+│   └── database.py
+├── main.py
+├── models
+│   ├── __init__.py
+│   ├── __pycache__
+│   │   ├── __init__.cpython-38.pyc
+│   │   ├── constants.cpython-38.pyc
+│   │   └── user.cpython-38.pyc
+│   ├── constants.py
+│   ├── movie.py
+│   ├── prediction.py
+│   ├── transaction.py
+│   ├── user.py
+│   └── wallet.py
+├── requirements.txt
+├── routes
+│   ├── __init__.py
+│   ├── event.py
+│   ├── home.py
+│   └── user.py
+└── services
+    └── crud
+        ├── __init__.py
+        ├── __pycache__
+        │   ├── __init__.cpython-38.pyc
+        │   ├── movie_service.cpython-38.pyc
+        │   └── recommender.cpython-38.pyc
+        ├── movie.py
+        ├── movie_service.py
+        ├── recommender.py
+        ├── user.py
+        └── wallet.py

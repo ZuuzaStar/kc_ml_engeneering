@@ -1,39 +1,34 @@
-from dataclasses import dataclass, field
+from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime
-import os
-from user import User
+from typing import Optional, TYPE_CHECKING
+from models.constants import TransactionType
 
-@dataclass
-class Transaction:
+if TYPE_CHECKING:
+    from user import User
+    from wallet import Wallet
+
+
+class Transaction(SQLModel, table=True):
     """
     Класс для представления финансовой транзакции в системе.
     
     Attributes:
         id (int): Уникальный идентификатор транзакции
-        user (User): Пользователь, для которого проходит транзакция
-        amount (str): Положительное значение - пополнение, отрицательное - списание
-        type (str): "deposit" - пополненик, "prediction" - списание, "admin_adjustment" - пополнение с правами админа
+        user_id (int): ID юзера, по которому проходит транзакция
+        wallet_id (int): ID Кошелька юзера
+        amount (float): Положительное значение - пополнение, отрицательное - списание
+        type (TransactionType): Тип транзакции (DEPOSIT, WITHDRAWAL, PREDICTION, ADMIN_ADJUSTMENT)
         description (str): Описание транзакции
         timestamp (datetime): Временная метка транзакции
     """
-    id: int
-    user: User
-    amount: float
-    type: str
-    description: str
-    timestamp: datetime = field(default_factory=datetime.now)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    wallet_id: int = Field(foreign_key="wallet.id", index=True)
+    amount: float = Field(default=0.0)
+    type: TransactionType = Field()
+    description: str = Field(min_length=1, max_length=500)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
-    def __post_init__(self) -> None:
-        self._validate_type()
-        self._validate_description()
-
-    def _validate_type(self) -> None:
-        """Проверяет тип события"""
-        allowed_types = os.getenv("ACTUAL_TRANSACTION_TYPES", "").split(',')
-        if self.type in allowed_types:
-            raise ValueError("Неизвестный тип транзакции")
-
-    def _validate_description(self) -> None:
-        """Проверяет длину описания события"""
-        if len(self.description) == 0:
-            raise ValueError("Описание не может быть пустым")
+    # Relationships
+    wallet: "Wallet" = Relationship(back_populates="transactions")
+    user: "User" = Relationship()

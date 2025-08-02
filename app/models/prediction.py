@@ -1,38 +1,50 @@
-from dataclasses import dataclass, field
-from typing import List
+from sqlmodel import SQLModel, Field, Relationship
+from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
-from movie import Movie
-from user import User
+from models.constants import TransactionCost
+
+if TYPE_CHECKING:
+    from user import User
+    from movie import Movie
 
 
-@dataclass
-class Prediction:
+class PredictionMovieLink(SQLModel, table=True):
+    """
+    Таблица отношений "многие ко многим" между Prediction и Movie.
+    """
+    prediction_id: Optional[int] = Field(
+        default=None, 
+        foreign_key="prediction.id", 
+        primary_key=True
+    )
+    movie_id: Optional[int] = Field(
+        default=None, 
+        foreign_key="movie.id", 
+        primary_key=True
+    )
+
+class Prediction(SQLModel, table=True):
     """
     Класс для представления списка рекомендаций фильмов.
     
     Attributes:
-        id (int): Уникальный идентификатор рекомендации
-        user (User): Пользователь, для которого предлагается рекомендация
+        id (int): ID рекомендации
+        user_id (int): ID пользователя, для которого предлагается рекомендация
         input_text (str): Промт пользователя
-        results (List[Movie]): Список рекомендованных фильмов
         cost (float): Стоимость генерации рекомендаций
         timestamp (datetime): Время запроса от пользователя
-        is_success (bool): Успешен ли запрос
-        error_message (str): Текст ошибки, если предсказание не удалось. По умолчанию "".
+        user (User): Взаимосвязь с объектом User
+        results (List[Movie]): Связь с фильмами из предсказания
     """
-    id: int
-    user: User
-    input_text: str
-    results: List[Movie] = field(default_factory=list)
-    cost: float = 0.0
-    timestamp: datetime = field(default_factory=datetime.now)
-    is_success: bool = True
-    error_code: int = 0
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    input_text: str = Field(min_length=10, max_length=2000)
+    cost: float = Field(default=0.0)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
-    def __post_init__(self) -> None:
-        self._validate_input_text()
-
-    def _validate_input_text(self) -> None:
-        """Проверяет, что запрос удовлетворяет требованиям"""
-        if len(self.input_text) < 10:
-            raise ValueError("Запрос должен быть длинне 10 символов")
+    # Relationships
+    user: "User" = Relationship(back_populates="predictions")
+    results: List["Movie"] = Relationship(
+        back_populates="predictions",
+        link_model=PredictionMovieLink
+    )
