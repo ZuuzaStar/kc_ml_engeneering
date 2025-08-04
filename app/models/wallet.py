@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from transaction import Transaction
+    from user import User
 
 
 class Wallet(SQLModel, table=True):
@@ -13,13 +14,16 @@ class Wallet(SQLModel, table=True):
     
     Attributes:
         id (int): ID кошелька
+        user_id (int): ID владельца кошелька (юзера)
         balance (float): Текущий баланс средств
-        transactions (List["Transaction"]): История транзакций
         created_at (datetime): Дата и время создания кошелька
+        transactions (List["Transaction"]): История транзакций        
     """
     id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", unique=True)
     balance: float = Field(default=0.0)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    # Relationships
+    # Relationships    
     transactions: List["Transaction"] = Relationship(back_populates="wallet")
+    user: "User" = Relationship()

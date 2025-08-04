@@ -1,6 +1,6 @@
 from typing import List, Optional
 import bcrypt
-from services.crud.recommender import MovieRecommender
+from app.services.recommender import MovieRecommender
 from models.user import User
 from models.wallet import Wallet
 from models.movie import Movie
@@ -22,7 +22,7 @@ class MovieService:
     def __init__(self):
         self.recomender: Optional[MovieRecommender] = None
 
-    def initialize_database(self) -> None:
+    def initialize_demo_database(self) -> None:
         """
         Инициализация базы данных стандартными данными:
         - Демо пользователь
@@ -34,7 +34,7 @@ class MovieService:
         # Создаем демо данные
         self._create_demo_users()
         self._create_demo_movies()
-        # self._setup_recommender()
+        self._setup_recommender()
         
         print("База данных инициализирована успешно!")
 
@@ -156,136 +156,6 @@ class MovieService:
             else:
                 print("Нет фильмов для рекомендательной системы")
 
-    def _hash_password(self, password: str) -> str:
-        return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-
-    def register_user(self, email: str, password: str) -> User:
-        """Регистрация нового пользователя"""
-        # Проверка, что пользователь с таким email еще не существует
-        with Session(engine) as session:
-            if session.exec(select(User).where(User.email == email)).first():
-                raise ValueError("Пользователь с таким email уже существует")
-            
-            # Создаем кошелек для пользователя
-            wallet = Wallet()
-            session.add(wallet)
-            session.commit()
-            session.refresh(wallet)
-
-            # Создаем пользователя
-            password_hash = self._hash_password(password)
-            user = User(
-                email=email,
-                password_hash=password_hash,
-                wallet_id=wallet.id
-            )
-            session.add(user)
-            session.commit()
-            session.refresh(user)
-            
-            # Добавляем стартовый бонус
-            bonus = Transaction(
-                user_id=user.id,
-                wallet_id=user.wallet_id,
-                amount=TransactionCost.BONUS.value,
-                type=TransactionType.DEPOSIT,
-                description="Приветственный бонус при регистрации"
-            )
-            make_transaction(user.wallet, bonus)
-            
-            # Добавляем транзакцию в сессию и коммитим
-            session.add(bonus)
-            session.commit()
-            
-            return user
-
-    def add_funds(self, user_id: int, amount: float) -> Transaction:
-        """Пополнение баланса пользователем"""
-        with Session(engine) as session:
-            user = self.users.get(user_id)
-            if not user:
-                raise ValueError("Пользователь не найден")
-            
-            transaction = Transaction(
-                user_id=user.id,
-                wallet_id=user.wallet_id,
-                amount=TransactionCost(amount).value,
-                type=TransactionType.DEPOSIT,
-                description="Пополнение баланса"
-            )
-            make_transaction(user.wallet, transaction)
-            session.add(transaction)
-            session.commit()
-            session.refresh(transaction)
-            return transaction
-
-    def admin_adjust_balance(self, admin_user_id: int, target_user_id: int, amount: float) -> Transaction:
-        """Административное изменение баланса"""
-        with Session(engine) as session:
-            # Получаем администратора
-            admin_user = session.get(User, admin_user_id)
-            if not admin_user:
-                raise ValueError("Администратор не найден")
-            if not admin_user.is_admin:
-                raise PermissionError("Требуются права администратора")
-            
-            # Получаем целевого пользователя
-            target_user = session.get(User, target_user_id)
-            if not target_user:
-                raise ValueError("Пользователь не найден")
-            
-            # Создаем транзакцию
-            transaction = Transaction(
-                user_id=target_user.id,
-                wallet_id=target_user.wallet_id,
-                amount=TransactionCost(amount),
-                type=TransactionType.ADMIN_ADJUSTMENT,
-                description=f"Корректировка администратором #{admin_user.id}"
-            )
-            make_transaction(target_user.wallet, transaction)
-            session.add(transaction)
-            session.commit()
-            session.refresh(transaction)
-            return transaction
-
-    def get_user_predictions_history(self, user_id: int) -> List[Prediction]:
-        """Получение истории запросов пользователя"""
-        with Session(engine) as session:
-            # Получаем пользователя
-            user = session.get(User, user_id)
-            if not user:
-                raise ValueError("Пользователь не найден")
-            
-            # Получаем текущего пользователя (для проверки прав)
-            current_user = session.get(User, user_id)
-            
-            # Проверяем права доступа
-            if current_user and (current_user.is_admin or current_user.id == user.id):
-                # Получаем историю предсказаний пользователя
-                predictions = session.exec(select(Prediction).where(Prediction.user_id == user.id)).all()
-                return predictions
-            else:
-                raise PermissionError("Требуются права администратора")
-
-    def get_user_transactions_history(self, user_id: int) -> List[Transaction]:
-        """Получение истории транзакций пользователя"""
-        with Session(engine) as session:
-            # Получаем пользователя
-            user = session.get(User, user_id)
-            if not user:
-                raise ValueError("Пользователь не найден")
-            
-            # Получаем текущего пользователя (для проверки прав)
-            current_user = session.get(User, user_id)
-            
-            # Проверяем права доступа
-            if current_user and (current_user.is_admin or current_user.id == user.id):
-                # Получаем историю транзакций пользователя
-                transactions = session.exec(select(Transaction).where(Transaction.user_id == user.id)).all()
-                return transactions
-            else:
-                raise PermissionError("Требуются права администратора")
-
     def recommend_movies(self, user_id: int, input_text: str) -> Prediction:
         """Получение рекомендаций с валидацией и списанием средств"""
         # Проверка наличия юзера
@@ -298,6 +168,7 @@ class MovieService:
             raise ValueError("Недостаточно средств для получения рекомендаций")
         
         # Загрузка модели
+        # self._setup_recommender()
         self.ml_model = self.recomender(list(self.movies.values()))
         if not self.ml_model:
             raise ValueError("ML модель не инициализирована")

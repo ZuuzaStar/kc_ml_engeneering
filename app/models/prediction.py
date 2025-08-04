@@ -4,8 +4,8 @@ from datetime import datetime
 from models.constants import TransactionCost
 
 if TYPE_CHECKING:
-    from user import User
-    from movie import Movie
+    from models.user import User
+    from models.movie import Movie
 
 
 class PredictionMovieLink(SQLModel, table=True):

@@ -8,3 +8,5 @@ uvicorn==0.16.0
 requests==2.27.1
 sqlalchemy==2.0.42
 sqlmodel==0.0.24
+psycopg2-binary==2.9.10
+pyTelegramBotAPI==4.14.0

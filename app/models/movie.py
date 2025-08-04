@@ -22,4 +22,4 @@ class Movie(SQLModel, table=True):
     cover_image_url: str = Field(max_length=500)
 
     # Relationships
-    predictions: List["Prediction"] = Relationship(back_populates="movies")
+    predictions: List["Prediction"] = Relationship(back_populates="results")
