@@ -104,7 +104,7 @@ async def signin(data: User, session=Depends(get_session)) -> Dict[str, str]:
     
     return {"message": "User signed in successfully"}
 
-@user_route.get('/get_balance')
+@user_route.get('/balance')
 async def get_balance(data: User, session=Depends(get_session)) -> Dict[str, float]:
     """
     Get wallet balance.
@@ -133,7 +133,7 @@ async def get_balance(data: User, session=Depends(get_session)) -> Dict[str, flo
             detail="Error"
         )
     
-@user_route.get('/adjust_balance')    
+@user_route.get('/balance/adjust')    
 async def adjust_balance(data: User, amount: float, session=Depends(get_session)) -> Dict[str, str]:
     """
     Adjust wallet balance.
@@ -171,3 +171,12 @@ async def adjust_balance(data: User, amount: float, session=Depends(get_session)
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Adjustment Error"
         )
+    
+@user_route.get("/transaction/history", response_model=List[Transaction]) 
+async def get_transaction_history(
+    data: User, 
+    session=Depends(get_session)
+    ) -> List[Transaction]:
+    user = UserService.get_user_by_email(data.email, session)
+    predictions = user.wallet.transactions
+    return predictions

@@ -9,7 +9,7 @@ from typing import List
 
 movie_service_route = APIRouter()
 
-@movie_service_route.get("/prediction_history", response_model=List[Prediction]) 
+@movie_service_route.get("/prediction/history", response_model=List[Prediction]) 
 async def get_prediction_history(
     data: User, 
     session=Depends(get_session)
@@ -18,7 +18,7 @@ async def get_prediction_history(
     predictions = user.predictions
     return predictions
 
-@movie_service_route.post("/new_prediction")
+@movie_service_route.post("/prediction/new")
 async def new_prediction(data: User, input_text: str, session=Depends(get_session)) -> List[Movie]: 
     user = UserService.get_user_by_email(data.email, session)
     prediction = MovieService().recommend_movies(user.id, input_text)

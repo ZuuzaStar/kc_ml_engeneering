@@ -1,9 +1,11 @@
+from __future__ import annotations
 from sqlmodel import SQLModel, Field, Relationship
 from typing import List, Optional
 import re
 from typing import TYPE_CHECKING
 from pydantic import field_validator
 import bcrypt
+from sqlalchemy.orm import Mapped, mapped_column
 
 if TYPE_CHECKING:
     from models.prediction import Prediction
@@ -30,8 +32,10 @@ class User(SQLModel, table=True):
     wallet_id: Optional[int] = Field(default=None, foreign_key="wallet.id", unique=True)
     
     # Relationships
-    wallet: 'Wallet' = Relationship()
-    predictions: List["Prediction"] = Relationship(back_populates="user")
+    wallet: Mapped[Optional["Wallet"]] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "User.wallet_id"}
+    )
+    predictions: Mapped[List["Prediction"]] = Relationship(back_populates="user")
 
     @field_validator("email")
     @classmethod

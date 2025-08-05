@@ -1,27 +1,14 @@
+from __future__ import annotations
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List, TYPE_CHECKING
 from datetime import datetime
-from models.constants import TransactionCost
+from models.prediction_movie_link import PredictionMovieLink
+from sqlalchemy.orm import Mapped, mapped_column
 
 if TYPE_CHECKING:
     from models.user import User
     from models.movie import Movie
 
-
-class PredictionMovieLink(SQLModel, table=True):
-    """
-    Таблица отношений "многие ко многим" между Prediction и Movie.
-    """
-    prediction_id: Optional[int] = Field(
-        default=None, 
-        foreign_key="prediction.id", 
-        primary_key=True
-    )
-    movie_id: Optional[int] = Field(
-        default=None, 
-        foreign_key="movie.id", 
-        primary_key=True
-    )
 
 class Prediction(SQLModel, table=True):
     """
@@ -43,8 +30,8 @@ class Prediction(SQLModel, table=True):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    user: "User" = Relationship(back_populates="predictions")
-    results: List["Movie"] = Relationship(
+    user: Mapped["User"] = Relationship(back_populates="predictions")
+    results: Mapped[List["Movie"]] = Relationship(
         back_populates="predictions",
         link_model=PredictionMovieLink
     )

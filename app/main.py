@@ -1,5 +1,11 @@
+from __future__ import annotations
 from database.config import get_settings
 from services.crud.movie_service import MovieService
+from models.prediction import PredictionMovieLink
+from models.user import User
+from models.wallet import Wallet
+from models.movie import Movie
+from models.prediction import Prediction
 import time
 import logging
 from sqlalchemy import create_engine, text
@@ -38,8 +44,8 @@ if __name__ == "__main__":
          # Вы можете выбрать, завершать ли работу или продолжать
          # raise RuntimeError("Невозможно продолжить без подключения к БД")
          pass # Или просто продолжаем, надеясь, что следующие операции сами обработают ошибку
-    from services.crud.movie_service import MovieService
-    # Инициализируем сервис
-    MovieService().initialize_demo_database()
+    # from services.crud.movie_service import MovieService
+    # # Инициализируем сервис
+    # MovieService().initialize_demo_database()
     settings = get_settings()
     print(settings)

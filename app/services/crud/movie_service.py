@@ -1,6 +1,6 @@
 from typing import List, Optional
 import bcrypt
-from app.services.recommender import MovieRecommender
+from services.recommender import MovieRecommender
 from models.user import User
 from models.wallet import Wallet
 from models.movie import Movie

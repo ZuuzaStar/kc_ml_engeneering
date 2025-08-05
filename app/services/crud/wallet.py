@@ -3,12 +3,12 @@ from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 
-if TYPE_CHECKING:
-    from models.transaction import Transaction
-    from models.wallet import Wallet
+# if TYPE_CHECKING:
+from models.transaction import Transaction
+from models.wallet import Wallet
 
 
-def make_transaction(wallet: 'Wallet', transaction: "Transaction", session: Session) -> 'Wallet':
+def make_transaction(wallet: Wallet, transaction: "Transaction", session: Session) -> Wallet:
     """
     Изменить баланс кошелька.
     
