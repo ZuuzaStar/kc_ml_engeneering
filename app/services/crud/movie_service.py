@@ -10,6 +10,7 @@ from database.database import engine
 from sqlmodel import Session, select
 from models.constants import TransactionType, TransactionCost
 from services.crud.wallet import make_transaction
+from services.crud.user import hash_password
 
 
 class MovieService:
@@ -22,7 +23,7 @@ class MovieService:
     def __init__(self):
         self.recomender: Optional[MovieRecommender] = None
 
-    def initialize_demo_database(self) -> None:
+    def initialize_demo_database(self, session: Session) -> None:
         """
         Инициализация базы данных стандартными данными:
         - Демо пользователь
@@ -32,74 +33,72 @@ class MovieService:
         print("Инициализация базы данных...")
         
         # Создаем демо данные
-        self._create_demo_users()
-        self._create_demo_movies()
-        self._setup_recommender()
+        self._create_demo_users(session)
+        self._create_demo_movies(session)
+        self._setup_recommender(session)
         
         print("База данных инициализирована успешно!")
 
-    def _create_demo_users(self) -> None:
+    def _create_demo_users(self, session: Session) -> None:
         """Создание демо пользователей"""
-        with Session(engine) as session:
-            # Проверяем, существуют ли уже пользователи
-            existing_users = session.exec(select(User)).first()
-            if existing_users:
-                print("Демо данные уже существуют")
-                return
-            
-            # Создаем кошельки для пользователей
-            user_wallet = Wallet()
-            admin_wallet = Wallet()
-            session.add(user_wallet)
-            session.add(admin_wallet)
-            session.commit()
-            session.refresh(user_wallet)
-            session.refresh(admin_wallet)
-            
-            # Создаем демо пользователя
-            user_password_hash = bcrypt.hashpw("user123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            demo_user = User(
-                email="user@example.com",
-                password_hash=user_password_hash,
-                is_admin=False,
-                wallet_id=user_wallet.id
-            )
-            session.add(demo_user)
-            
-            # Создаем демо администратора
-            admin_password_hash = bcrypt.hashpw("admin123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            demo_admin = User(
-                email="admin@example.com",
-                password_hash=admin_password_hash,
-                is_admin=True,
-                wallet_id=admin_wallet.id
-            )
-            session.add(demo_admin)
-            
-            # Добавляем стартовые бонусы
-            user_bonus = Transaction(
-                user_id=demo_user.id,
-                wallet_id=user_wallet.id,
-                amount=TransactionCost.BONUS.value,
-                type=TransactionType.DEPOSIT,
-                description="Приветственный бонус при регистрации"
-            )
-            admin_bonus = Transaction(
-                user_id=demo_admin.id,
-                wallet_id=admin_wallet.id,
-                amount=TransactionCost.BONUS.value,
-                type=TransactionType.DEPOSIT,
-                description="Приветственный бонус при регистрации"
-            )
-            make_transaction(user_wallet, user_bonus)
-            make_transaction(admin_wallet, admin_bonus)
-            
-            session.add(user_bonus)
-            session.add(admin_bonus)
-            session.commit()
-            print("Демо пользователи созданы")
+        # Проверяем, существуют ли уже пользователи
+        existing_users = session.exec(select(User)).first()
+        if existing_users:
+            print("Демо данные уже существуют")
+            return
+        
+        # Создаем кошельки для пользователей
+        user_wallet = Wallet()
+        admin_wallet = Wallet()
+        session.add(user_wallet)
+        session.add(admin_wallet)
+        session.commit()
+        session.refresh(user_wallet)
+        session.refresh(admin_wallet)
+        
+        # Создаем демо пользователя
+        user_password_hash = hash_password("user123")
+        demo_user = User(
+            email="user@example.com",
+            password_hash=user_password_hash,
+            wallet=user_wallet
+        )
+        session.add(demo_user)
+        
+        # Создаем демо администратора
+        admin_password_hash = hash_password("admin123")
+        demo_admin = User(
+            email="admin@example.com",
+            password_hash=admin_password_hash,
+            is_admin=True,
+            wallet=admin_wallet
+        )
+        session.add(demo_admin)
+        
+        # Добавляем стартовые бонусы
+        user_bonus = Transaction(
+            user_id=demo_user.id,
+            wallet_id=user_wallet.id,
+            amount=TransactionCost.BONUS.value,
+            type=TransactionType.DEPOSIT,
+            description="Приветственный бонус при регистрации"
+        )
+        admin_bonus = Transaction(
+            user_id=demo_admin.id,
+            wallet_id=admin_wallet.id,
+            amount=TransactionCost.BONUS.value,
+            type=TransactionType.DEPOSIT,
+            description="Приветственный бонус при регистрации"
+        )
+        make_transaction(user_wallet, user_bonus)
+        make_transaction(admin_wallet, admin_bonus)
+        
+        session.add(user_bonus)
+        session.add(admin_bonus)
+        session.commit()
+        print("Демо пользователи созданы")
 
-    def _create_demo_movies(self) -> None:
+    def _create_demo_movies(self, session: Session) -> None:
         """Создание демо фильмов"""
         demo_movies_data = [
             {
@@ -129,37 +128,33 @@ class MovieService:
             }
         ]
         
-        with Session(engine) as session:
-            # Проверяем, существуют ли уже фильмы
-            
-            existing_movies = session.exec(select(Movie)).first()
-            if existing_movies:
-                print("Демо фильмы уже существуют")
-                return
-            
-            # Создаем демо фильмы
-            for movie_data in demo_movies_data:
-                movie = Movie(**movie_data)
-                session.add(movie)
-            
-            session.commit()
-            print(f"Создано {len(demo_movies_data)} демо фильмов")
+        # Проверяем, существуют ли уже фильмы
+        existing_movies = session.exec(select(Movie)).first()
+        if existing_movies:
+            print("Демо фильмы уже существуют")
+            return
+        
+        # Создаем демо фильмы
+        for movie_data in demo_movies_data:
+            movie = Movie(**movie_data)
+            session.add(movie)
+        
+        session.commit()
+        print(f"Создано {len(demo_movies_data)} демо фильмов")
 
-    def _setup_recommender(self) -> None:
+    def _setup_recommender(self, session: Session) -> None:
         """Настройка рекомендательной системы"""
-        with Session(engine) as session:
-            # Получаем все фильмы из базы
-            movies = session.exec(select(Movie)).all()
-            if movies:
-                self.recomender = MovieRecommender(movies)
-                print("Рекомендательная система инициализирована")
-            else:
-                print("Нет фильмов для рекомендательной системы")
+        movies = session.exec(select(Movie)).all()
+        if movies:
+            self.recomender = MovieRecommender(movies)
+            print("Рекомендательная система инициализирована")
+        else:
+            print("Нет фильмов для рекомендательной системы")
 
-    def recommend_movies(self, user_id: int, input_text: str) -> Prediction:
+    def recommend_movies(self, user_id: int, input_text: str, session: Session) -> Prediction:
         """Получение рекомендаций с валидацией и списанием средств"""
         # Проверка наличия юзера
-        user = self.users.get(user_id)
+        user = session.get(User, user_id)
         if not user:
             raise ValueError("Пользователь не найден")
 
@@ -174,8 +169,8 @@ class MovieService:
             raise ValueError("ML модель не инициализирована")
         
         # Полуение рекомендаций
-        model_prediction = self.ml_model.predict(user, input_text)
-        if len(model_prediction) == 0:
+        recommendations = self.ml_model.predict(user, input_text)
+        if len(recommendations) == 0:
             raise ValueError("Получен пустой список рекомендаций")
         
         # Определяем стоимость
@@ -186,7 +181,7 @@ class MovieService:
             user_id=user.id,
             input_text=input_text,
             cost=cost,
-            results=model_prediction,
+            results=recommendations,
         )
 
         transaction = Transaction(
@@ -202,19 +197,18 @@ class MovieService:
         # user.predictions.append(prediction)
 
         # Сохраняем в базу данных
-        with Session(engine) as session:
-            session.add(prediction)
-            session.commit()
-            session.refresh(prediction)
-            
-            # Создаем связи с фильмами через PredictionMovieLink
-            from models.prediction import PredictionMovieLink
-            for movie in model_prediction:
-                link = PredictionMovieLink(
-                    prediction_id=prediction.id,
-                    movie_id=movie.id
-                )
-                session.add(link)
-            session.commit()
+        session.add(prediction)
+        session.commit()
+        session.refresh(prediction)
+        
+        # Создаем связи с фильмами через PredictionMovieLink
+        from models.prediction import PredictionMovieLink
+        for movie in recommendations:
+            link = PredictionMovieLink(
+                prediction_id=prediction.id,
+                movie_id=movie.id
+            )
+            session.add(link)
+        session.commit()
         
         return prediction

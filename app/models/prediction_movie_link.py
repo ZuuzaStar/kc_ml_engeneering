@@ -5,6 +5,10 @@ from typing import Optional
 class PredictionMovieLink(SQLModel, table=True):
     """
     Таблица отношений "многие ко многим" между Prediction и Movie.
+
+    Attributes:
+        prediction_id (Optional[int]): ID предсказания
+        movie_id (Optional[int]): ID фильма
     """
     prediction_id: Optional[int] = Field(
         foreign_key="prediction.id", 

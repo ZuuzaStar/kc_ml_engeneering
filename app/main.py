@@ -9,7 +9,8 @@ from models.prediction import Prediction
 import time
 import logging
 from sqlalchemy import create_engine, text
-from database.config import get_settings # Импортируем настройки
+from database.database import engine
+from sqlmodel import Session
 
 # Настройка логгирования (по желанию, но полезно)
 logging.basicConfig(level=logging.INFO)
@@ -41,11 +42,9 @@ def wait_for_db(max_retries=30, retry_interval=1):
 if __name__ == "__main__":
     # Ждем готовности базы данных
     if not wait_for_db():
-         # Вы можете выбрать, завершать ли работу или продолжать
-         # raise RuntimeError("Невозможно продолжить без подключения к БД")
-         pass # Или просто продолжаем, надеясь, что следующие операции сами обработают ошибку
-    # from services.crud.movie_service import MovieService
-    # # Инициализируем сервис
-    # MovieService().initialize_demo_database()
-    settings = get_settings()
-    print(settings)
+        logger.error("Не удалось подключиться к БД")
+        exit(1)
+    with Session(engine) as session:
+        MovieService().initialize_demo_database(session)
+        settings = get_settings()
+        print(settings)
