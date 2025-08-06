@@ -1,6 +1,8 @@
+from __future__ import annotations
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List
 from typing import TYPE_CHECKING
+from models.prediction_movie_link import PredictionMovieLink
 
 if TYPE_CHECKING:
     from models.prediction import Prediction
@@ -22,4 +24,7 @@ class Movie(SQLModel, table=True):
     cover_image_url: str = Field(max_length=500)
 
     # Relationships
-    predictions: List["Prediction"] = Relationship(back_populates="movies")
+    predictions: List["Prediction"] = Relationship(
+        back_populates="results",
+        link_model=PredictionMovieLink
+        )

@@ -1,7 +1,11 @@
+from __future__ import annotations
 from sqlmodel import SQLModel, Field, Relationship
 from typing import List, Optional
 import re
 from typing import TYPE_CHECKING
+from pydantic import field_validator
+import bcrypt
+from sqlalchemy.orm import Mapped, mapped_column
 
 if TYPE_CHECKING:
     from models.prediction import Prediction
@@ -28,15 +32,29 @@ class User(SQLModel, table=True):
     wallet_id: Optional[int] = Field(default=None, foreign_key="wallet.id", unique=True)
     
     # Relationships
-    wallet: 'Wallet' = Relationship()
-    predictions: List["Prediction"] = Relationship(back_populates="user")
+    wallet: Mapped[Optional["Wallet"]] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "User.wallet_id"}
+    )
+    predictions: Mapped[List["Prediction"]] = Relationship(back_populates="user")
 
-    
-    def __post_init__(self):
-        self._validate_email()
-    
-    def _validate_email(self):
-        """Проверяет что email похож на email"""
-        if not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", self.email):
-            raise ValueError("Некорректный email")
-    
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, email: str) -> bool:
+        if not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", email):
+            raise ValueError("Неверный формат email")
+        return True
+
+    def _validate_password(self, password: str) -> bool:
+        """
+        Проверяет что переданный пароль соответствует актуальному паролю юзера.
+        
+        Args:
+            user: объект текущего пользователя
+            password: строка для сравнения с паролем
+        
+        Returns:
+            bool: возвращает True, если соответствует, иначе - ошибка
+        """
+        if not bcrypt.checkpw(password.encode("utf-8"), self.password_hash.encode("utf-8")):
+            raise ValueError("Некорректный пароль")
+        return True

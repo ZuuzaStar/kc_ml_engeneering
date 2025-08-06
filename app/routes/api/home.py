@@ -17,7 +17,7 @@ async def index() -> str:
         Dict[str, str]: Welcome message
     """
     try:
-        return {"message": "Welcome to Event Planner API"}
+        return {"message": "Welcome to Movie Recommender API"}
     except Exception as e:
         raise HTTPException(status_code=500, detail="Internal server error")
 
