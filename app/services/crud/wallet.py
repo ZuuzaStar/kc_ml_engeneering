@@ -66,8 +66,8 @@ def get_wallet_by_id(wallet_id: int, session: Session) -> Optional[Wallet]:
         Optional[Wallet]: Найденный пользователь или None
     """
     try:
-        statement = select(wallet).where(wallet.id == wallet_id).options(
-            selectinload(wallet.events)
+        statement = select(Wallet).where(wallet.id == wallet_id).options(
+            selectinload(wallet.transactions)
         )
         wallet = session.exec(statement).first()
         return wallet

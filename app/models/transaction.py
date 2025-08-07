@@ -1,35 +1,33 @@
 from __future__ import annotations
-from sqlmodel import SQLModel, Field, Relationship
-from datetime import datetime
+from sqlmodel import Field, Relationship
 from typing import Optional, TYPE_CHECKING
 from models.constants import TransactionType
+from models.base_model import BaseModel
 
 if TYPE_CHECKING:
     from user import User
     from wallet import Wallet
 
 
-class Transaction(SQLModel, table=True):
+class Transaction(BaseModel, table=True):
     """
     Класс для представления финансовой транзакции в системе.
     
     Attributes:
-        id (int): Уникальный идентификатор транзакции
         user_id (int): ID юзера, по которому проходит транзакция
         wallet_id (int): ID Кошелька юзера
         amount (float): Положительное значение - пополнение, отрицательное - списание
-        type (TransactionType): Тип транзакции (DEPOSIT, WITHDRAWAL, PREDICTION, ADMIN_ADJUSTMENT)
-        description (str): Описание транзакции
-        timestamp (datetime): Временная метка транзакции
+        type (TransactionType): Тип транзакции
+        description (Optional[str]): Описание транзакции
+
+    Relationships:
+        wallet ("Wallet"): Связь транзакции с кошельком
+        user ("User"): Связь транзакции с юзером
     """
-    id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", index=True)
     wallet_id: int = Field(foreign_key="wallet.id", index=True)
     amount: float = Field(default=0.0)
     type: TransactionType = Field()
-    description: str = Field(min_length=1, max_length=500)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
-
-    # Relationships
+    description: Optional[str] = Field(min_length=1, max_length=500)
     wallet: "Wallet" = Relationship(back_populates="transactions")
     user: "User" = Relationship()

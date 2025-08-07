@@ -1,15 +1,19 @@
 from __future__ import annotations
 from database.config import get_settings
-from services.crud.movie_service import MovieService
-from models.prediction import PredictionMovieLink
+from services.crud import user as UserServices
+from services.crud import wallet as WalletServices
 from models.user import User
 from models.wallet import Wallet
+from services.crud.movie_service import MovieService
+from models.prediction import PredictionMovieLink
 from models.movie import Movie
 from models.prediction import Prediction
 import time
 import logging
 from sqlalchemy import create_engine, text
-from database.config import get_settings # Импортируем настройки
+from database.database import engine
+from sqlmodel import Session
+
 
 # Настройка логгирования (по желанию, но полезно)
 logging.basicConfig(level=logging.INFO)
@@ -41,11 +45,22 @@ def wait_for_db(max_retries=30, retry_interval=1):
 if __name__ == "__main__":
     # Ждем готовности базы данных
     if not wait_for_db():
-         # Вы можете выбрать, завершать ли работу или продолжать
-         # raise RuntimeError("Невозможно продолжить без подключения к БД")
-         pass # Или просто продолжаем, надеясь, что следующие операции сами обработают ошибку
-    # from services.crud.movie_service import MovieService
-    # # Инициализируем сервис
-    # MovieService().initialize_demo_database()
-    settings = get_settings()
-    print(settings)
+        logger.error("Не удалось подключиться к БД")
+        exit(1)
+    from sqlmodel import SQLModel
+    SQLModel.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        # MovieService().initialize_demo_database(session)
+        settings = get_settings()
+        print(settings)
+        new_wallet = Movie()
+        # new_wallet = WalletServices.create_wallet(new_wallet, session)
+        # new_user = User(
+        #     email='example@mail.ru',
+        #     password_hash=UserServices.hash_password('example123'),
+        #     wallet=new_wallet
+        # )
+        # UserServices.create_user(
+        #      new_user, session
+        # )
