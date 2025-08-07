@@ -1,8 +1,6 @@
 from __future__ import annotations
-from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import Field, Relationship
 from typing import List, Optional
-from datetime import datetime
-from sqlalchemy.orm import Mapped, mapped_column
 from typing import TYPE_CHECKING
 from models.base_model import BaseModel
 
@@ -21,9 +19,9 @@ class Wallet(BaseModel, table=True):
     
     Relationships:
         transactions (Mapped[List["Transaction"]]): История транзакций   
-        user (Mapped[Optional['User']]): Связь с владельцем кошелька     
+        user (Mapped[Optional["User"]]): Связь с владельцем кошелька     
     """
     user_id: Optional[int] = Field(default=None, foreign_key="user.id", unique=True)
     balance: float = Field(default=0.0)
-    transactions: Mapped[List["Transaction"]] = Relationship(back_populates="wallet")
-    user: Optional['User'] = Relationship(back_populates="wallet")
+    transactions: List["Transaction"] = Relationship(back_populates="wallet")
+    user: Optional["User"] = Relationship(back_populates="wallet")

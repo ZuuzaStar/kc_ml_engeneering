@@ -47,51 +47,45 @@ class MovieService:
             print("Демо данные уже существуют")
             return
         
-        # Создаем кошельки для пользователей
-        user_wallet = Wallet()
-        admin_wallet = Wallet()
-        session.add(user_wallet)
-        session.add(admin_wallet)
-        session.commit()
-        session.refresh(user_wallet)
-        session.refresh(admin_wallet)
-        
-        # Создаем демо пользователя
-        user_password_hash = hash_password("user123")
+        # Создаем демо пользователей
         demo_user = User(
             email="user@example.com",
-            password_hash=user_password_hash,
-            wallet=user_wallet
+            password_hash=hash_password("user123")
         )
-        session.add(demo_user)
-        
-        # Создаем демо администратора
-        admin_password_hash = hash_password("admin123")
         demo_admin = User(
             email="admin@example.com",
-            password_hash=admin_password_hash,
+            password_hash=hash_password("admin123"),
             is_admin=True,
-            wallet=admin_wallet
         )
-        session.add(demo_admin)
+        # Создаем кошельки для пользователей
+        demo_user.wallet = Wallet()
+        demo_admin.wallet = Wallet()
+        session.add(demo_user.wallet)
+        session.add(demo_admin.wallet)
+        session.refresh(demo_user.wallet)
+        session.refresh(demo_admin.wallet)
         
+        # Создаем демо пользователя
+        session.add(demo_user)
+        session.add(demo_admin)
+                
         # Добавляем стартовые бонусы
         user_bonus = Transaction(
             user_id=demo_user.id,
-            wallet_id=user_wallet.id,
+            wallet_id=demo_user.wallet.id,
             amount=TransactionCost.BONUS.value,
             type=TransactionType.DEPOSIT,
             description="Приветственный бонус при регистрации"
         )
         admin_bonus = Transaction(
             user_id=demo_admin.id,
-            wallet_id=admin_wallet.id,
+            wallet_id=demo_admin.wallet.id,
             amount=TransactionCost.BONUS.value,
             type=TransactionType.DEPOSIT,
             description="Приветственный бонус при регистрации"
         )
-        make_transaction(user_wallet, user_bonus)
-        make_transaction(admin_wallet, admin_bonus)
+        make_transaction(demo_user.wallet, user_bonus)
+        make_transaction(demo_admin.wallet, admin_bonus)
         
         session.add(user_bonus)
         session.add(admin_bonus)

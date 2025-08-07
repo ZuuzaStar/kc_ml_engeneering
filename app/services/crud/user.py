@@ -79,7 +79,7 @@ def get_user_by_email(email: str, session: Session) -> Optional[User]:
     """
     try:
         statement = select(User).where(User.email == email).options(
-            selectinload(User.events)
+            selectinload(User.predictions)
         )
         user = session.exec(statement).first()
         return user

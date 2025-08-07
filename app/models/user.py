@@ -5,8 +5,8 @@ import re
 from typing import TYPE_CHECKING
 from pydantic import field_validator
 import bcrypt
-from sqlalchemy.orm import Mapped, mapped_column
 from models.base_model import BaseModel
+
 
 if TYPE_CHECKING:
     from models.prediction import Prediction
@@ -31,7 +31,7 @@ class User(BaseModel, table=True):
     password_hash: str = Field(min_length=4, max_length=255)
     is_admin: bool = Field(default=False)
     wallet: Optional["Wallet"] = Relationship(back_populates="user")
-    predictions: Mapped[List["Prediction"]] = Relationship(back_populates="user")
+    predictions: List["Prediction"] = Relationship(back_populates="user")
 
     @field_validator("email")
     @classmethod

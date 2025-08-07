@@ -1,6 +1,5 @@
 from __future__ import annotations
 from sqlmodel import Field, Relationship
-from datetime import datetime
 from typing import Optional, TYPE_CHECKING
 from models.constants import TransactionType
 from models.base_model import BaseModel
