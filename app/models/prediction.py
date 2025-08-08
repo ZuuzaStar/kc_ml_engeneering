@@ -13,21 +13,27 @@ if TYPE_CHECKING:
 class Prediction(BaseModel, table=True):
     """
     Класс для представления списка рекомендаций фильмов.
-    
+
     Attributes:
         user_id (int): ID пользователя, для которого предлагается рекомендация
         input_text (str): Промт пользователя
         cost (float): Стоимость генерации рекомендаций
-    
+
     Relationships:
         user (Mapped["User"]): Взаимосвязь с объектом User
         results (Mapped[List["Movie"]]): Связь с фильмами из предсказания
     """
+
     user_id: int = Field(foreign_key="user.id", index=True)
     input_text: str = Field(min_length=10, max_length=2000)
     cost: float = Field(default=0.0)
-    user: Mapped["User"] = Relationship(sa_relationship=relationship(back_populates="predictions"))
-    results: Mapped[List["Movie"]] = Relationship(
-        back_populates="predictions",
-        link_model=PredictionMovieLink
+    user: Mapped["User"] = Relationship(
+        sa_relationship=relationship(back_populates="predictions")
+    )
+    movie: Mapped[List["Movie"]] = Relationship(
+        sa_relationship=relationship(
+            secondary=lambda: PredictionMovieLink.__table__,
+            back_populates="predictions",
+        ),
+        link_model=PredictionMovieLink,
     )

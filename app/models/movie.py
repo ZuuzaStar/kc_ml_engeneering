@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class Movie(BaseModel, table=True):
     """
     Класс для представления фильма, который модель может использовать для рекомендации.
-    
+
     Attributes:
         title (str): Название фильма
         description (str): Описание фильма
@@ -22,11 +22,14 @@ class Movie(BaseModel, table=True):
     Relationships:
         predictions (List["Prediction"]): Список предсказаний, где рекомендовался этот фильм
     """
+
     title: str = Field(min_length=1, max_length=255)
     description: str = Field(min_length=10, max_length=1000)
     cover_image_url: str = Field(max_length=500)
     predictions: Mapped[List["Prediction"]] = Relationship(
-        back_populates="results",
-        link_model=PredictionMovieLink
+        sa_relationship=relationship(
+            secondary=lambda: PredictionMovieLink.__table__, back_populates="movie"
+        ),
+        link_model=PredictionMovieLink,
     )
 

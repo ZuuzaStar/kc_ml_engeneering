@@ -26,10 +26,10 @@ services:
     volumes:
       - ./ml_worker:/app
     depends_on:
-      - db
+      - database
       - rabbitmq
     networks:
-      - event-planner-network
+      - app-network
 
   web-proxy:
     build: ./nginx
@@ -63,7 +63,7 @@ services:
       timeout: 10s
       retries: 3
     networks:
-      - event-planner-network
+      - app-network
 
   database:
     image: postgres:16-alpine

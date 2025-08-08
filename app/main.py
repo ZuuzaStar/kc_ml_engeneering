@@ -54,13 +54,13 @@ if __name__ == "__main__":
         # MovieService().initialize_demo_database(session)
         settings = get_settings()
         print(settings)
-        new_wallet = Movie()
-        # new_wallet = WalletServices.create_wallet(new_wallet, session)
-        # new_user = User(
-        #     email='example@mail.ru',
-        #     password_hash=UserServices.hash_password('example123'),
-        #     wallet=new_wallet
-        # )
-        # UserServices.create_user(
-        #      new_user, session
-        # )
+        new_wallet = Wallet()
+        new_wallet = WalletServices.create_wallet(new_wallet, session)
+        new_user = User(
+            email='example@mail.ru',
+            password_hash=UserServices.hash_password('example123'),
+            wallet=new_wallet
+        )
+        UserServices.create_user(
+             new_user, session
+        )
