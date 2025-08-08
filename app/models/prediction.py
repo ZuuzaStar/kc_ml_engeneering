@@ -3,6 +3,7 @@ from sqlmodel import Field, Relationship
 from typing import  List, TYPE_CHECKING
 from models.prediction_movie_link import PredictionMovieLink
 from models.base_model import BaseModel
+from sqlalchemy.orm import Mapped, relationship
 
 if TYPE_CHECKING:
     from models.user import User
@@ -25,8 +26,8 @@ class Prediction(BaseModel, table=True):
     user_id: int = Field(foreign_key="user.id", index=True)
     input_text: str = Field(min_length=10, max_length=2000)
     cost: float = Field(default=0.0)
-    user: "User" = Relationship(back_populates="predictions")
-    results: List["Movie"] = Relationship(
+    user: Mapped["User"] = Relationship(sa_relationship=relationship(back_populates="predictions"))
+    results: Mapped[List["Movie"]] = Relationship(
         back_populates="predictions",
         link_model=PredictionMovieLink
     )

@@ -4,6 +4,7 @@ from sqlmodel import Field, Relationship
 from typing import Optional, List
 from typing import TYPE_CHECKING
 from models.prediction_movie_link import PredictionMovieLink
+from sqlalchemy.orm import Mapped, relationship
 
 if TYPE_CHECKING:
     from models.prediction import Prediction
@@ -24,7 +25,8 @@ class Movie(BaseModel, table=True):
     title: str = Field(min_length=1, max_length=255)
     description: str = Field(min_length=10, max_length=1000)
     cover_image_url: str = Field(max_length=500)
-    predictions: List["Prediction"] = Relationship(
+    predictions: Mapped[List["Prediction"]] = Relationship(
         back_populates="results",
         link_model=PredictionMovieLink
-        )
+    )
+

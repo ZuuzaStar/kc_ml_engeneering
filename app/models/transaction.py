@@ -3,6 +3,7 @@ from sqlmodel import Field, Relationship
 from typing import Optional, TYPE_CHECKING
 from models.constants import TransactionType
 from models.base_model import BaseModel
+from sqlalchemy.orm import Mapped, relationship
 
 if TYPE_CHECKING:
     from user import User
@@ -24,10 +25,8 @@ class Transaction(BaseModel, table=True):
         wallet ("Wallet"): Связь транзакции с кошельком
         user ("User"): Связь транзакции с юзером
     """
-    user_id: int = Field(foreign_key="user.id", index=True)
     wallet_id: int = Field(foreign_key="wallet.id", index=True)
     amount: float = Field(default=0.0)
     type: TransactionType = Field()
     description: Optional[str] = Field(min_length=1, max_length=500)
-    wallet: "Wallet" = Relationship(back_populates="transactions")
-    user: "User" = Relationship()
+    wallet: Mapped["Wallet"] = Relationship(sa_relationship=relationship(back_populates="transactions"))
