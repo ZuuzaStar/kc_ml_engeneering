@@ -3,6 +3,7 @@ from sqlmodel import Session, select
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 import bcrypt
+from sqlalchemy import delete
 
 
 def make_user_admin(user: User, session: Session) -> User:
@@ -37,9 +38,7 @@ def get_all_users(session: Session) -> Optional[List[User]]:
         List[User]: Список пользователей
     """
     try:
-        statement = select(User).options(
-            select(User)
-        )
+        statement = select(User)
         users = session.exec(statement).all()
         return users
     except Exception as e:
@@ -124,6 +123,19 @@ def delete_user(user_id: int, session: Session) -> bool:
             session.commit()
             return True
         return False
+    except Exception as e:
+        session.rollback()
+        raise
+
+def delete_all_users(session: Session) -> bool:
+    """
+    Удаление всех пользователей.
+    """
+    try:
+        delete_statement = delete(User)
+        session.exec(delete_statement)
+        session.commit()
+        return True
     except Exception as e:
         session.rollback()
         raise

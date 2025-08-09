@@ -51,16 +51,21 @@ if __name__ == "__main__":
     SQLModel.metadata.create_all(engine)
 
     with Session(engine) as session:
-        # MovieService().initialize_demo_database(session)
         settings = get_settings()
-        print(settings)
-        new_wallet = Wallet()
-        new_wallet = WalletServices.create_wallet(new_wallet, session)
-        new_user = User(
-            email='example@mail.ru',
-            password_hash=UserServices.hash_password('example123'),
-            wallet=new_wallet
-        )
-        UserServices.create_user(
-             new_user, session
-        )
+        # print(settings)
+        # MovieService().initialize_demo_database(session)
+        # new_wallet = Wallet()
+        # new_wallet = WalletServices.create_wallet(new_wallet, session)
+        # new_user = User(
+        #     email='example2@mail.ru',
+        #     password_hash=UserServices.hash_password('example2123'),
+        #     wallet=new_wallet
+        # )
+        # UserServices.create_user(
+        #      new_user, session
+        # )
+        # UserServices.delete_all_users(session)
+        # print(UserServices.get_all_users(session))
+        print(WalletServices.delete_all_wallets(session))
+        print(WalletServices.get_all_wallets(session))
+

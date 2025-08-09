@@ -46,13 +46,13 @@ def get_all_wallets(session: Session) -> Optional[List[Wallet]]:
         List[Wallet]: Список пользователей
     """
     try:
-        statement = select(Wallet).options(
-            select(Wallet)
-        )
+        statement = select(Wallet)
         wallets = session.exec(statement).all()
         return wallets
     except Exception as e:
         raise
+
+    
 
 def get_wallet_by_id(wallet_id: int, session: Session) -> Optional[Wallet]:
     """
@@ -112,6 +112,20 @@ def delete_wallet(wallet_id: int, session: Session) -> bool:
             session.commit()
             return True
         return False
+    except Exception as e:
+        session.rollback()
+        raise
+
+def delete_all_wallets(session: Session) -> bool:
+    """
+    Удаление всех пользователей.
+    """
+    try:
+        for wallet in get_all_wallets(session):
+            session.delete(wallet)
+            session.commit()
+            return True
+        return True
     except Exception as e:
         session.rollback()
         raise

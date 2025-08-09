@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 from models.constants import TransactionType, TransactionCost
 from services.crud.wallet import make_transaction
 from services.crud.user import hash_password
+from services.rm.rm import send_result, send_task
 
 
 class MovieService:
@@ -47,6 +48,11 @@ class MovieService:
             print("Демо данные уже существуют")
             return
         
+        # Создаем кошельки для пользователей
+        user_wallet = Wallet()
+        admin_wallet = Wallet()
+        session.add(user_wallet)
+        session.add(admin_wallet)
         # Создаем демо пользователей
         demo_user = User(
             email="user@example.com",
@@ -58,16 +64,26 @@ class MovieService:
             is_admin=True,
         )
         # Создаем кошельки для пользователей
-        demo_user.wallet = Wallet()
-        demo_admin.wallet = Wallet()
+        demo_user.wallet = user_wallet
+        demo_admin.wallet = admin_wallet
+        
+        user_wallet.user = demo_user
+        user_wallet.user_id = demo_user.id
+
+        admin_wallet.user = demo_admin
+        admin_wallet.user_id = demo_admin.id
+
         session.add(demo_user.wallet)
         session.add(demo_admin.wallet)
-        session.refresh(demo_user.wallet)
-        session.refresh(demo_admin.wallet)
         
         # Создаем демо пользователя
         session.add(demo_user)
         session.add(demo_admin)
+        session.commit()
+        session.refresh(user_wallet)
+        session.refresh(admin_wallet)
+        session.refresh(demo_user)
+        session.refresh(demo_admin)
                 
         # Добавляем стартовые бонусы
         user_bonus = Transaction(
@@ -84,8 +100,9 @@ class MovieService:
             type=TransactionType.DEPOSIT,
             description="Приветственный бонус при регистрации"
         )
-        make_transaction(demo_user.wallet, user_bonus)
-        make_transaction(demo_admin.wallet, admin_bonus)
+
+        make_transaction(demo_user.wallet, user_bonus, session)
+        make_transaction(demo_admin.wallet, admin_bonus, session)
         
         session.add(user_bonus)
         session.add(admin_bonus)

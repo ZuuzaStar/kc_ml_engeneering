@@ -1,4 +1,6 @@
 import pika
+from typing import List
+from app.models.movie import Movie
 
 # Параметры подключения
 connection_params = pika.ConnectionParameters(
@@ -14,20 +16,45 @@ connection_params = pika.ConnectionParameters(
 )
 
 def send_task(message:str):
-    connection = pika.BlockingConnection(connection_params)
-    channel = connection.channel()
-    
-    # Имя очереди
-    queue_name = 'ml_task_queue'
+    """Отправка ML задачи"""
+    try:
+        connection = pika.BlockingConnection(connection_params)
+        channel = connection.channel()
+        
+        # Имя очереди
+        queue_name = 'ml_task_queue'
 
-    # Отправка сообщения
-    channel.queue_declare(queue=queue_name)  # Создание очереди (если не существует)
+        # Отправка сообщения
+        channel.queue_declare(queue=queue_name)  # Создание очереди (если не существует)
 
-    channel.basic_publish(
-        exchange='',
-        routing_key=queue_name,
-        body=message
-    )
+        channel.basic_publish(
+            exchange='',
+            routing_key=queue_name,
+            body=message
+        )
 
-    # Закрытие соединения
-    connection.close()
+        # Закрытие соединения
+        connection.close()
+    except Exception as e:
+            raise
+
+def send_result(result_data: List[Movie]):
+    """Отправка результата ML задачи"""
+    try:
+        connection = pika.BlockingConnection(connection_params)
+        channel = connection.channel()
+
+        queue_name = 'ml_result_queue'
+        channel.queue_declare(queue=queue_name)
+        
+        channel.basic_publish(
+            exchange='',
+            routing_key=queue_name,
+            body=result_data
+        )
+
+        # Закрытие соединения
+        connection.close()
+        
+    except Exception as e:
+        raise

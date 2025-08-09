@@ -3,6 +3,7 @@ version: '3.8'
 services:
   app:
     build: ./app
+    container_name: recomender-app
     env_file:
       - ./app/.env
     volumes:
@@ -18,8 +19,8 @@ services:
 
   ml_worker:
     build: ./ml_worker/
-    image: event-planner-ml-worker:latest
-    container_name: event-planner-ml-worker
+    image: recomender-ml-worker:latest
+    container_name: recomender-ml-worker
     restart: unless-stopped
     env_file:
     - ./ml_worker/.env
@@ -43,7 +44,7 @@ services:
 
   rabbitmq:
     image: rabbitmq:3.13.1-management-alpine
-    container_name: rabbitmq_for_planner
+    container_name: recomender-rabbitmq
     hostname: rabbitmq
     restart: unless-stopped
     env_file:
@@ -67,7 +68,7 @@ services:
 
   database:
     image: postgres:16-alpine
-    container_name: myapp
+    container_name: recomender-database
     restart: unless-stopped
     volumes:
       - postgres_volume:/var/lib/postgresql/data
