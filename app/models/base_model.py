@@ -11,4 +11,4 @@ class BaseModel(SQLModel):
         timestamp (datetime): Временная метка создания сущности
     """
     id: int = Field(primary_key=True)
-    timestamp: datetime = Field(default=datetime.utcnow())
+    timestamp: datetime = Field(default_factory=datetime.utcnow)  # Исправлено

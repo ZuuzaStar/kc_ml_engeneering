@@ -1,6 +1,6 @@
 from __future__ import annotations
 from sqlmodel import Field, Relationship
-from typing import  List, TYPE_CHECKING
+from typing import List, TYPE_CHECKING
 from models.prediction_movie_link import PredictionMovieLink
 from models.base_model import BaseModel
 from sqlalchemy.orm import Mapped, relationship
@@ -21,16 +21,18 @@ class Prediction(BaseModel, table=True):
 
     Relationships:
         user (Mapped["User"]): Взаимосвязь с объектом User
-        results (Mapped[List["Movie"]]): Связь с фильмами из предсказания
+        movies (Mapped[List["Movie"]]): Связь с фильмами из предсказания
     """
 
     user_id: int = Field(foreign_key="user.id", index=True)
     input_text: str = Field(min_length=10, max_length=2000)
     cost: float = Field(default=0.0)
+    
+    # Relationships
     user: Mapped["User"] = Relationship(
         sa_relationship=relationship(back_populates="predictions")
     )
-    movie: Mapped[List["Movie"]] = Relationship(
+    movies: Mapped[List["Movie"]] = Relationship(  # Исправлено имя поля
         sa_relationship=relationship(
             secondary=lambda: PredictionMovieLink.__table__,
             back_populates="predictions",

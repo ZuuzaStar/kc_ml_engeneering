@@ -6,8 +6,8 @@ from models.base_model import BaseModel
 from sqlalchemy.orm import Mapped, relationship
 
 if TYPE_CHECKING:
-    from user import User
-    from wallet import Wallet
+    from models.user import User
+    from models.wallet import Wallet
 
 
 class Transaction(BaseModel, table=True):
@@ -25,8 +25,12 @@ class Transaction(BaseModel, table=True):
         wallet ("Wallet"): Связь транзакции с кошельком
         user ("User"): Связь транзакции с юзером
     """
+    user_id: int = Field(foreign_key="user.id", index=True)
     wallet_id: int = Field(foreign_key="wallet.id", index=True)
     amount: float = Field(default=0.0)
     type: TransactionType = Field()
     description: Optional[str] = Field(min_length=1, max_length=500)
+    
+    # Relationships
     wallet: Mapped["Wallet"] = Relationship(sa_relationship=relationship(back_populates="transactions"))
+    user: Mapped["User"] = Relationship(sa_relationship=relationship())
