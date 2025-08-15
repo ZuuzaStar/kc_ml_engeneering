@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     # RabbitMQ settings
     RABBITMQ_USER: Optional[str] = None
     RABBITMQ_PASSWORD: Optional[str] = None
+    RABBITMQ_HOST: Optional[str] = None
+    RABBITMQ_PORT: Optional[str] = None
     
     # Application settings
     APP_NAME: Optional[str] = None
