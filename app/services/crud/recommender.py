@@ -1,11 +1,13 @@
 from typing import List, TYPE_CHECKING
 from abc import ABC, abstractmethod
 from sqlmodel import Session, select
+from app.models.prediction import Prediction
+from app.services.crud.user import get_user_by_id
 from database.database import engine
 from models.movie import Movie
-from models.constants import ModelTypes
+from models.constants import TransactionCost
 from pgvector.sqlalchemy import Vector
-from sentence_transformers import SentenceTransformer
+from models.user import User
 
 if TYPE_CHECKING:
     from models.movie import Movie
@@ -16,22 +18,15 @@ class MLModel(ABC):
     Абстрактный класс для самой ML модели
     """
     @abstractmethod
-    def predict(self, input_text: str) -> List['Movie']:
+    def predict(self, user: User, input_text: str, top: int = 10) -> List['Movie']:
         pass
 
 
 class MovieRecommender(MLModel):
     """
     Получение рекомендаций для пользователя на основе ввода
-    
-    Attributes:
-        model: SentenceTransformer модель для генерации эмбеддингов
     """
-    
-    def __init__(self):
-        self.model = SentenceTransformer('sentence-transformers/' + ModelTypes.BASIC.value)
-
-    def predict(self, input_text: str, top: int = 10) -> List['Movie']:
+    def predict(self, model, user: User, input_text: str, top: int = 10) -> List['Movie']:
         """
         Реализация абстрактного метода predict
         
@@ -43,8 +38,16 @@ class MovieRecommender(MLModel):
             List[Movie]: Список рекомендованных фильмов
         """
         with Session(engine) as session:
+            if not session.get(User, user.id):
+                raise ValueError("Пользователя с таким id не существует")
+
+            if user.is_admin:
+                cost = TransactionCost.ADMIN.value
+            else:
+                cost = TransactionCost.BASIC.value
+
             # Генерация эмбеддинга для запроса
-            embedding = self.model.encode(input_text).tolist()
+            embedding = model.encode(input_text).tolist()
             
             # Поиск похожих фильмов
             movies = session.scalars(
@@ -52,5 +55,18 @@ class MovieRecommender(MLModel):
                 .order_by(Movie.embedding.cast(Vector).op("<=>")(embedding))
                 .limit(top)
             ).all()
+
+            prediction = Prediction(
+                user_id=user.id,
+                input_text=input_text,
+                cost=cost,
+                user=user,
+                movies=movies
+            )
             
-            return movies  # Возвращаем объекты Movie
+            session.add(prediction)
+            user.predictions.append(prediction)
+            session.refresh(user)
+            session.commit()
+
+            return movies

@@ -26,7 +26,7 @@ class TransactionCost(float, Enum):
         new_member._value_ = float(value)
         return new_member
 
-class ModelTypes(str, Enum):
-    """Перечисление возможных моделей, которые можно испрользовать"""
-    BASIC = 'all-MiniLM-L6-v2'
+# class ModelTypes(str, Enum):
+#     """Перечисление возможных моделей, которые можно испрользовать"""
+#     BASIC = 'all-MiniLM-L6-v2'
     
