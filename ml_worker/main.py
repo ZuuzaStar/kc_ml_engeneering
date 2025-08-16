@@ -3,10 +3,10 @@ import time
 import json
 import sys
 from loguru import logger
-from ml_worker.constants import ModelTypes
-from ml_worker.config import get_settings
+from constants import ModelTypes
+from config import get_settings
 from sentence_transformers import SentenceTransformer
-from ml_worker.constants import ModelTypes
+from constants import ModelTypes
 from embedding import EmbeddingGenerator
 
 

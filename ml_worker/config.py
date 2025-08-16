@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     RABBITMQ_PORT: Optional[str] = None
         
     model_config = SettingsConfigDict(
-        env_file="ml_worker/.env",
+        env_file="app/.env",
         env_file_encoding="utf-8",
         case_sensitive=True,
     )

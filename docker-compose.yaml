@@ -23,9 +23,9 @@ services:
     container_name: recomender-ml-worker
     restart: unless-stopped
     env_file:
-    - ./ml_worker/.env
+      - ./app/.env
     volumes:
-      - ./ml_worker:/app
+      - ./app:/app
     depends_on:
       - database
       - rabbitmq
