@@ -1,11 +1,16 @@
 from fastapi import APIRouter, Body, HTTPException, status, Depends
+from app.services.crud.wallet import make_transaction
 from database.database import get_session
 from models.prediction import Prediction
 from models.movie import Movie
 from models.user import User
 from services.crud import user as UserService
 from typing import List
-from services.rm.rm import send_task
+from services.rm.rm import MLServiceRpcClient
+from models.constants import TransactionCost, TransactionType
+from database.config import get_settings
+from pgvector.sqlalchemy import Vector
+from sqlmodel import select
 
 movie_service_route = APIRouter()
 
@@ -14,10 +19,10 @@ movie_service_route = APIRouter()
     response_model=List[Prediction]
 ) 
 async def get_prediction_history(
-    data: User, 
+    user: User, 
     session=Depends(get_session)
     ) -> List[Prediction]:
-    user = UserService.get_user_by_email(data.email, session)
+    user = UserService.get_user_by_email(user.email, session)
     predictions = user.predictions
     return predictions
 
@@ -25,15 +30,59 @@ async def get_prediction_history(
     "/prediction/new",
     response_model=List[Movie]
 )
-async def new_prediction(message: str, session=Depends(get_session)) -> List[Movie]: 
+async def new_prediction(
+    user: User, 
+    message: str,
+    top: int = 10,
+    session=Depends(get_session)
+) -> List[Movie]: 
     """
     Эндпоинт, возвращающий рекомендации
 
     Returns:
         List[Movie]: Список фильмов
     """
+    if not session.get(User, user.id):
+        raise ValueError("Пользователя с таким id не существует")
+    if user.is_admin:
+        cost = TransactionCost.ADMIN.value
+    else:
+        cost = TransactionCost.BASIC.value
     try:
-        send_task(message)
-        return {"message": f"Task sent successfully!"}
+        make_transaction(
+            wallet=user.wallet,
+            amount=-cost,
+            type=TransactionType.PREDICTION,
+            description='Рекомендация фильмов',
+            session=Depends(get_session)
+        )
+    except Exception as e:
+        raise e
+    try:
+        ml_service_rpc = MLServiceRpcClient(get_settings())
+        response = ml_service_rpc.call(message)
+
+        # Поиск похожих фильмов
+        movies = session.scalars(
+            select(Movie)
+            .order_by(Movie.embedding.cast(Vector).op("<=>")(response))
+            .limit(top)
+        ).all()
+
+        prediction = Prediction(
+            user_id=user.id,
+            input_text=message,
+            cost=cost,
+            user=user,
+            movies=movies
+        )
+        
+        session.add(prediction)
+        user.predictions.append(prediction)
+        session.refresh(user)
+        session.commit()
+
+        return movies
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=e)

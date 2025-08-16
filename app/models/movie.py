@@ -21,7 +21,8 @@ class Movie(BaseModel, table=True):
         title (str): Название фильма
         description (str): Описание фильма
         year (int): Год выхода фильма
-        genre (str): Жанр фильма
+        genres (str): Жанры фильма
+        embedding (Vector(384)): Вектор эмбединга фильма длинной 384
     """
 
     title: str = Field(min_length=1, max_length=255)
