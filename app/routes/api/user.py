@@ -56,18 +56,11 @@ async def signup(data: User, session=Depends(get_session)) -> Dict[str, str]:
         # Персонализируем кошелек
         wallet.user_id = user.id
 
-        WalletService.create_wallet(wallet,session)
+        WalletService.create_wallet(wallet, session)
         UserService.create_user(user, session)
         logger.info(f"New user registered: {data.email}")
-        
-        user_bonus = Transaction(
-            user_id=user.id,
-            wallet_id=wallet.id,
-            amount=TransactionCost.BONUS.value,
-            type=TransactionType.DEPOSIT,
-            description="Приветственный бонус при регистрации"
-        )
-        WalletService.make_transaction(wallet, user_bonus, session)
+
+        WalletService.make_transaction(wallet, TransactionCost.ENTRY_BONUS.value, TransactionType.ENTRY_BONUS, session)
         logger.info(f"Start bonus add: {data.email}")
         return {"message": "User successfully registered"}
 
@@ -134,7 +127,7 @@ async def get_balance(data: User, session=Depends(get_session)) -> Dict[str, flo
         )
     
 @user_route.get('/balance/adjust')    
-async def adjust_balance(data: User, amount: float, session=Depends(get_session)) -> Dict[str, str]:
+async def adjust_balance(user: User, amount: float, session=Depends(get_session)) -> Dict[str, str]:
     """
     Adjust wallet balance.
 
@@ -146,23 +139,8 @@ async def adjust_balance(data: User, amount: float, session=Depends(get_session)
         dict: Success message
     """
     try:
-        user = UserService.get_user_by_email(data.email, session)
-        if not user:
-            logger.warning(f"Wrong email: {data.email}")
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="User with this email does not exists"
-            )
-        
-        transaction = Transaction(
-            user_id=user.id,
-            wallet_id=user.wallet_id,
-            amount=TransactionCost(amount).value,
-            type=TransactionType.DEPOSIT,
-            description="Пополнение кошелька"
-        )
-        WalletService.make_transaction(user.wallet, transaction, session)
-        logger.info(f"Successfull balance adjustment: {data.email}")
+        WalletService.make_transaction(user.wallet, TransactionCost.ENTRY_BONUS.value, TransactionType.ENTRY_BONUS, session)
+        logger.info(f"Successfull balance adjustment for {user.email}")
         return {"message": "Successfull balance adjustment"}
 
     except Exception as e:

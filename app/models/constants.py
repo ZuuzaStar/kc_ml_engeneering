@@ -6,14 +6,14 @@ class TransactionType(str, Enum):
     WITHDRAWAL = "withdrawal"
     PREDICTION = "prediction"
     ADMIN_ADJUSTMENT = "admin_adjustment"
+    ENTRY_BONUS = "entry_bonus"
 
 
 class TransactionCost(float, Enum):
     """Перечисление стоимости транзакций в зависимости от тарифа"""
     BASIC = 10.0
-    SUBSCRIPTION = 5.0
     ADMIN = 0.0
-    BONUS = 20.0
+    ENTRY_BONUS = 20.0
     
     @classmethod
     def _missing_(cls, value):

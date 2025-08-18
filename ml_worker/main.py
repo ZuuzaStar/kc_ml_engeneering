@@ -41,7 +41,7 @@ channel.queue_declare(queue=task_queue)
 
 # Функция генерации ембендингов
 def get_embedding(input_text: str):
-    return embedding_generator.get_embedding(input_text)
+    return embedding_generator.encode(input_text)
 
 def send_result_to_queue(result_data, properties):
     """Отправка результата в очередь результатов"""
@@ -69,9 +69,16 @@ def on_request(ch, method, properties, body):
         if not input_text:
             raise ValueError("No 'text' in message")
         
+        if len(input_text) == 0:
+            raise ValueError("Request is empty")
+        
         # Обработка рекомендации
         start_time = time.time()
-        request_embedding = get_embedding(input_text)
+        try:
+            request_embedding = get_embedding(input_text)
+        except Exception as e:
+            logger.error(f"Embedding generation error: {e}")
+            raise
         processing_time = time.time() - start_time
                 
         # Отправка результата в очередь результатов

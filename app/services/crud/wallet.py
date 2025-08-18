@@ -1,20 +1,16 @@
-from typing import TYPE_CHECKING
 from sqlmodel import Session, select
-from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from loguru import logger
-
-# if TYPE_CHECKING:
 from models.transaction import Transaction
 from models.wallet import Wallet
 from models.constants import TransactionType
+from services.crud import user as UserService
 
 
 def make_transaction(
     wallet: Wallet, 
     amount: float,
     type: TransactionType,
-    description: str, 
     session: Session
 ) -> Wallet:
     """
@@ -39,7 +35,6 @@ def make_transaction(
             wallet_id=wallet.id,
             amount=amount,
             type=type,
-            description=description, 
             wallet=wallet
         )
         
@@ -61,7 +56,9 @@ def make_transaction(
         raise ValueError(f"Не удалось выполнить транзакцию: {e}") from e
 
 
-def get_all_wallets(session: Session) -> List[Wallet]:
+def get_all_wallets(
+    session: Session
+) -> List[Wallet]:
     """
     Запрашивает все кошельки из базы.
     
@@ -80,29 +77,32 @@ def get_all_wallets(session: Session) -> List[Wallet]:
         raise
 
 
-def get_wallet_by_id(wallet_id: int, session: Session) -> Optional[Wallet]:
+def get_wallet_by_id(
+    id: int, 
+    session: Session
+) -> Optional[Wallet]:
     """
     Получить кошелек по ID.
     
     Args:
-        wallet_id: ID кошелька
+        id: ID кошелька
         session: сессия базы данных
     
     Returns:
         Optional[Wallet]: Найденный кошелек или None
     """
     try:
-        statement = select(Wallet).where(Wallet.id == wallet_id).options(
-            selectinload(Wallet.transactions)
-        )
-        wallet = session.exec(statement).first()
+        wallet = session.get(Wallet, id)
         return wallet
     except Exception as e:
-        logger.error(f"Ошибка при получении кошелька по ID {wallet_id}: {e}")
+        logger.error(f"Ошибка при получении кошелька по ID {id}: {e}")
         raise
 
 
-def get_wallet_by_user_id(user_id: int, session: Session) -> Optional[Wallet]:
+def get_wallet_by_user_id(
+    id: int, 
+    session: Session
+) -> Optional[Wallet]:
     """
     Получить кошелек по ID пользователя.
     
@@ -113,90 +113,19 @@ def get_wallet_by_user_id(user_id: int, session: Session) -> Optional[Wallet]:
     Returns:
         Optional[Wallet]: Найденный кошелек или None
     """
+    user = UserService.get_user_by_id(id)
     try:
-        statement = select(Wallet).where(Wallet.user_id == user_id).options(
-            selectinload(Wallet.transactions)
-        )
+        statement = select(Wallet).where(Wallet.user_id == user.id)
         wallet = session.exec(statement).first()
         return wallet
     except Exception as e:
-        logger.error(f"Ошибка при получении кошелька пользователя {user_id}: {e}")
+        logger.error(f"Ошибка при получении кошелька пользователя {id}: {e}")
         raise
 
-
-def create_wallet(wallet: Wallet, session: Session) -> Wallet:
-    """
-    Создание нового кошелька.
-    
-    Args:
-        wallet: экземпляр нового кошелька
-        session: сессия базы данных
-    
-    Returns:
-        Wallet: новый кошелек
-    """
-    try:
-        session.add(wallet)
-        session.commit()
-        session.refresh(wallet)
-        logger.info(f"Кошелек {wallet.id} создан")
-        return wallet
-    except Exception as e:
-        session.rollback()
-        logger.error(f"Ошибка при создании кошелька: {e}")
-        raise
-
-
-def delete_wallet(wallet_id: int, session: Session) -> bool:
-    """
-    Удаление кошелька.
-    
-    Args:
-        wallet_id: ID кошелька
-        session: сессия базы данных
-    
-    Returns:
-        bool: True если кошелек удален, False если не найден
-    """
-    try:
-        wallet = get_wallet_by_id(wallet_id, session)
-        if wallet:
-            session.delete(wallet)
-            session.commit()
-            logger.info(f"Кошелек {wallet_id} удален")
-            return True
-        logger.warning(f"Кошелек с ID {wallet_id} не найден")
-        return False
-    except Exception as e:
-        session.rollback()
-        logger.error(f"Ошибка при удалении кошелька {wallet_id}: {e}")
-        raise
-
-
-def delete_all_wallets(session: Session) -> bool:
-    """
-    Удаление всех кошельков.
-    
-    Args:
-        session: сессия базы данных
-    
-    Returns:
-        bool: True если операция выполнена успешно
-    """
-    try:
-        wallets = get_all_wallets(session)
-        for wallet in wallets:
-            session.delete(wallet)
-        session.commit()
-        logger.info(f"Удалено {len(wallets)} кошельков")
-        return True
-    except Exception as e:
-        session.rollback()
-        logger.error(f"Ошибка при удалении всех кошельков: {e}")
-        raise
-
-
-def get_wallet_balance(wallet_id: int, session: Session) -> float:
+def get_wallet_balance(
+    id: int, 
+    session: Session
+) -> float:
     """
     Получить баланс кошелька.
     
@@ -208,16 +137,19 @@ def get_wallet_balance(wallet_id: int, session: Session) -> float:
         float: баланс кошелька
     """
     try:
-        wallet = get_wallet_by_id(wallet_id, session)
+        wallet = get_wallet_by_id(id, session)
         if wallet:
             return wallet.balance
-        raise ValueError(f"Кошелек с ID {wallet_id} не найден")
+        raise ValueError(f"Кошелек с ID {id} не найден")
     except Exception as e:
-        logger.error(f"Ошибка при получении баланса кошелька {wallet_id}: {e}")
+        logger.error(f"Ошибка при получении баланса кошелька {id}: {e}")
         raise
 
 
-def get_wallet_transactions(wallet_id: int, session: Session) -> List[Transaction]:
+def get_wallet_transactions(
+    id: int, 
+    session: Session
+) -> List[Transaction]:
     """
     Получить все транзакции кошелька.
     
@@ -229,10 +161,10 @@ def get_wallet_transactions(wallet_id: int, session: Session) -> List[Transactio
         List[Transaction]: Список транзакций
     """
     try:
-        wallet = get_wallet_by_id(wallet_id, session)
+        wallet = get_wallet_by_id(id, session)
         if wallet:
             return wallet.transactions
-        raise ValueError(f"Кошелек с ID {wallet_id} не найден")
+        raise ValueError(f"Кошелек с ID {id} не найден")
     except Exception as e:
-        logger.error(f"Ошибка при получении транзакций кошелька {wallet_id}: {e}")
+        logger.error(f"Ошибка при получении транзакций кошелька {id}: {e}")
         raise

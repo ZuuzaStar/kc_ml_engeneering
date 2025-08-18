@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Body, HTTPException, status, Depends
-from app.services.crud.wallet import make_transaction
+from app.services.crud import wallet as WalletService
+from app.services.crud import prediction as PredictionService
 from database.database import get_session
 from models.prediction import Prediction
 from models.movie import Movie
@@ -49,40 +50,25 @@ async def new_prediction(
     else:
         cost = TransactionCost.BASIC.value
     try:
-        make_transaction(
-            wallet=user.wallet,
-            amount=-cost,
-            type=TransactionType.PREDICTION,
-            description='Рекомендация фильмов',
-            session=Depends(get_session)
-        )
+        WalletService.make_transaction(user.wallet, -cost, TransactionType.PREDICTION, session)
     except Exception as e:
         raise e
     try:
         ml_service_rpc = MLServiceRpcClient(get_settings())
         response = ml_service_rpc.call(message)
 
-        # Поиск похожих фильмов
+        # Поиск подходящих фильмов
         movies = session.scalars(
             select(Movie)
-            .order_by(Movie.embedding.cast(Vector).op("<=>")(response))
+            .order_by(Movie.embedding.cast(Vector).op("<=>")(response["request_embedding"]))
             .limit(top)
         ).all()
 
-        prediction = Prediction(
-            user_id=user.id,
-            input_text=message,
-            cost=cost,
-            user=user,
-            movies=movies
-        )
-        
-        session.add(prediction)
-        user.predictions.append(prediction)
-        session.refresh(user)
-        session.commit()
+        # Сохраняем предикт в базу
+        PredictionService.create_prediction(user, message, response, cost, movies, session)
 
         return movies
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=e)
+

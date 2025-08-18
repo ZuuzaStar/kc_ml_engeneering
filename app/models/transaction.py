@@ -29,7 +29,6 @@ class Transaction(BaseModel, table=True):
     wallet_id: int = Field(foreign_key="wallet.id", index=True)
     amount: float = Field(default=0.0)
     type: TransactionType = Field()
-    description: Optional[str] = Field(min_length=1, max_length=500)
     
     # Relationships
     wallet: Mapped["Wallet"] = Relationship(sa_relationship=relationship(back_populates="transactions"))
