@@ -1,45 +1,109 @@
 import pika
 import time
-import logging
+import json
+import sys
+from loguru import logger
+from constants import ModelTypes
+from config import get_settings
+from sentence_transformers import SentenceTransformer
+from constants import ModelTypes
+from embedding import EmbeddingGenerator
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
 
-logger = logging.getLogger(__name__)
-# Настройка логирования 
+# Настройка логирования
+logger.remove()
+logger.add(sys.stderr, level="INFO")
 
-connection_params = pika.ConnectionParameters(
-    host='rabbitmq',  # Замените на адрес вашего RabbitMQ сервера
-    port=5672,          # Порт по умолчанию для RabbitMQ
-    virtual_host='/',   # Виртуальный хост (обычно '/')
+# Инициализация модели
+embedding_generator = EmbeddingGenerator(ModelTypes.BASIC.value)
+
+# Подключение к RabbitMQ (как в учебном примере)
+settings = get_settings()
+connection = pika.BlockingConnection(pika.ConnectionParameters(
+    host=settings.RABBITMQ_HOST,
+    port=settings.RABBITMQ_PORT,
+    virtual_host='/',
     credentials=pika.PlainCredentials(
-        username='rmuser',  # Имя пользователя по умолчанию
-        password='rmpassword'   # Пароль по умолчанию
+        username=settings.RABBITMQ_USER,
+        password=settings.RABBITMQ_PASSWORD
     ),
     heartbeat=30,
     blocked_connection_timeout=2
-)
+))
 
-connection = pika.BlockingConnection(connection_params)
+# Названия очередей
+task_queue = 'ml_task_queue'
+result_queue = 'ml_result_queue'
+
+# Создание очереди для задач
 channel = connection.channel()
-queue_name = 'ml_task_queue'
-channel.queue_declare(queue=queue_name)  # Создание очереди (если не существует)
+channel.queue_declare(queue=task_queue)
 
+# Функция генерации ембендингов
+def get_embedding(input_text: str):
+    return embedding_generator.encode(input_text)
 
-# Функция, которая будет вызвана при получении сообщения
-def callback(ch, method, properties, body):
-    time.sleep(3) # Имитация полезной работы
-    logger.info(f"Received: '{body}'")
-    ch.basic_ack(delivery_tag=method.delivery_tag) # Ручное подтверждение обработки сообщения
+def send_result_to_queue(result_data, properties):
+    """Отправка результата в очередь результатов"""
+    try:        
+        channel.basic_publish(
+            exchange='',
+            routing_key=properties.reply_to,
+            body=json.dumps(result_data),
+            properties=pika.BasicProperties(
+                correlation_id=properties.correlation_id
+            )
+        )
+        logger.info(f"Result sent to queue: {result_data}")
+    except Exception as e:
+        logger.error(f"Error sending result to queue: {e}")
 
-# Подписка на очередь и установка обработчика сообщений
+def on_request(ch, method, properties, body):
+    try:
+        logger.info(f"Received message: {body}")
+        
+        # Парсинг входящего сообщения
+        data = json.loads(body)
+        input_text = data.get('text')
+        
+        if not input_text:
+            raise ValueError("No 'text' in message")
+        
+        if len(input_text) == 0:
+            raise ValueError("Request is empty")
+        
+        # Обработка рекомендации
+        start_time = time.time()
+        try:
+            request_embedding = get_embedding(input_text)
+        except Exception as e:
+            logger.error(f"Embedding generation error: {e}")
+            raise
+        processing_time = time.time() - start_time
+                
+        # Отправка результата в очередь результатов
+        result_data = {
+            "request_embedding": request_embedding,
+            "processing_time": processing_time,
+            "status": "success"
+        }
+        
+        # Отправка в очередь результатов
+        send_result_to_queue(result_data, properties)
+        
+        # Подтверждение обработки
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+        
+    except Exception as e:
+        logger.error(f"Error processing message: {e}")
+        ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+
+channel.basic_qos(prefetch_count=1)
 channel.basic_consume(
-    queue=queue_name,
-    on_message_callback=callback,
-    auto_ack=False  # Автоматическое подтверждение обработки сообщений
+    queue=task_queue,
+    on_message_callback=on_request,
+    auto_ack=False
 )
 
-logger.info('Waiting for messages. To exit, press Ctrl+C')
+logger.info('Waiting for recommendation requests. To exit press Ctrl+C')
 channel.start_consuming()
