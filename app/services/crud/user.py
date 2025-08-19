@@ -11,8 +11,8 @@ from loguru import logger
 
 
 def create_user(
-    email: str, 
-    password: str, 
+    email: str,
+    password: str,
     session: Session,
     is_admin: bool = False
 ) -> User:
@@ -35,17 +35,21 @@ def create_user(
     try:
         wallet = Wallet()
         session.add(wallet)
+        session.flush()
 
         user = User(
-            email=email, 
+            email=email,
             password_hash=hash_password(password),
-            wallet=wallet,
             is_admin=is_admin
         )
-        wallet.user = user
-        wallet.user_id = user.id
+        session.add(user)
+        session.flush()
 
-        # Создаем пользователя
+        # Устанавливаем связи после того, как у обеих сущностей появились id
+        wallet.user_id = user.id
+        wallet.user = user
+        user.wallet = wallet
+        session.add(wallet)
         session.add(user)
         session.commit()
         session.refresh(wallet)
@@ -206,9 +210,9 @@ def create_demo_users(session: Session) -> None:
         try:
             if not get_user_by_email(email, session):
                 create_user(
-                    email=email, 
-                    password_hash=hash_password(password), 
-                    session=session, 
+                    email=email,
+                    password=password,
+                    session=session,
                     is_admin=is_admin
                 )
             else:

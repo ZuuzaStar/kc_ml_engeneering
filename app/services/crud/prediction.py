@@ -1,5 +1,5 @@
 from typing import List
-from app.models.movie import Movie
+from models.movie import Movie
 from models.prediction import Prediction
 from models.user import User
 from sqlmodel import Session, select
@@ -9,10 +9,10 @@ from pgvector.sqlalchemy import Vector
 
 
 def create_prediction(
-    user: User, 
+    user: User,
     input_text: str,
-    embedding: Vector(384),
-    cost: float, 
+    embedding: list,
+    cost: float,
     movies: List[Movie],
     session: Session
 ) -> Prediction:
@@ -40,9 +40,8 @@ def create_prediction(
     )
     
     session.add(prediction)
-    user.predictions.append(prediction)
-    session.refresh(user)
     session.commit()
+    session.refresh(prediction)
 
     return prediction
 
@@ -91,11 +90,11 @@ def get_prediction_by_user_id(
     Returns:
         Optional[Wallet]: Найденный кошелек или None
     """
-    user = UserService.get_user_by_id(id)
+    user = UserService.get_user_by_id(id, session)
     try:
         statement = select(Prediction).where(Prediction.user_id == user.id)
-        predictios = session.exec(statement).all()
-        return predictios
+        predictions = session.exec(statement).all()
+        return predictions
     except Exception as e:
         logger.error(f"Ошибка при получении истории предсказаний по ID пользователя {id}: {e}")
         raise

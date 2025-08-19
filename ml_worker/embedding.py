@@ -29,5 +29,6 @@ class EmbeddingGenerator(MLModel):
         Returns:
             List[float]: Список рекомендованных фильмов
         """
-        return self.model.encode(input_text)
+        embedding = self.model.encode(input_text)
+        return embedding.tolist() if hasattr(embedding, 'tolist') else embedding
             

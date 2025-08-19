@@ -13,12 +13,15 @@ class Settings(BaseSettings):
     # RabbitMQ settings
     RABBITMQ_USER: Optional[str] = None
     RABBITMQ_PASSWORD: Optional[str] = None
+    RABBITMQ_HOST: Optional[str] = None
+    RABBITMQ_PORT: Optional[int] = None
     
     # Application settings
     APP_NAME: Optional[str] = None
     APP_DESCRIPTION: Optional[str] = None
     DEBUG: Optional[bool] = None
     API_VERSION: Optional[str] = None
+    BOT_TOKEN: Optional[str] = None
     
     @property
     def DATABASE_URL_asyncpg(self):
@@ -29,7 +32,7 @@ class Settings(BaseSettings):
         return f'postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}'
     
     model_config = SettingsConfigDict(
-        env_file="app/.env",
+        env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,
     )
@@ -38,6 +41,8 @@ class Settings(BaseSettings):
         """Validate critical configuration settings"""
         if not all([self.POSTGRES_HOST, self.POSTGRES_USER, self.POSTGRES_PASSWORD, self.POSTGRES_DB]):
             raise ValueError("Missing required database configuration")
+        if not all([self.RABBITMQ_USER, self.RABBITMQ_PASSWORD, self.RABBITMQ_HOST, self.RABBITMQ_PORT]):
+            raise ValueError("Missing required RabbitMQ configuration")
 
 @lru_cache()
 def get_settings() -> Settings:

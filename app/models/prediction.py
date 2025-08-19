@@ -1,6 +1,7 @@
 from __future__ import annotations
 from sqlmodel import Field, Relationship
 from typing import List, TYPE_CHECKING, Any
+from pydantic import field_serializer
 from models.prediction_movie_link import PredictionMovieLink
 from models.base_model import BaseModel
 from sqlalchemy.orm import Mapped, relationship
@@ -42,3 +43,10 @@ class Prediction(BaseModel, table=True):
         ),
         link_model=PredictionMovieLink,
     )
+
+    @field_serializer("embedding")
+    def serialize_embedding(self, embedding):  # type: ignore[no-redef]
+        try:
+            return embedding.tolist()  # numpy ndarray -> list
+        except Exception:
+            return embedding

@@ -7,6 +7,9 @@ from database.database import init_db
 from database.config import get_settings
 import uvicorn
 import logging
+from routes.web.ui import web_ui
+from sqlmodel import Session
+from database.database import engine
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -40,6 +43,7 @@ def create_application() -> FastAPI:
     app.include_router(home_route, tags=['Home'])
     app.include_router(user_route, prefix='/api/users', tags=['Users'])
     app.include_router(movie_service_route, prefix='/api/events', tags=['MovieService'])
+    app.include_router(web_ui, tags=['Web'])
 
     return app
 
@@ -50,6 +54,19 @@ def on_startup():
     try:
         logger.info("Initializing database...")
         init_db()
+        # Seed movies if empty
+        with Session(engine) as session:
+            try:
+                from services.crud.movie import get_all_movies, update_movie_database
+                from sentence_transformers import SentenceTransformer
+                from models.constants import ModelTypes
+                if len(get_all_movies(session)) == 0:
+                    logger.info("No movies found. Seeding demo/movie dataset...")
+                    model = SentenceTransformer('sentence-transformers/' + ModelTypes.BASIC.value)
+                    update_movie_database(model, session)
+                    logger.info("Movie dataset seeded")
+            except Exception as seed_err:
+                logger.warning(f"Movie seeding skipped/failed: {seed_err}")
         logger.info("Application startup completed successfully")
     except Exception as e:
         logger.error(f"Startup failed: {str(e)}")

@@ -17,7 +17,9 @@ class MLServiceRpcClient(object):
             heartbeat=30,
             blocked_connection_timeout=2
         )
+        self.connection = pika.BlockingConnection(self.connection_params)
         self.channel = self.connection.channel()
+        # Declare a private exclusive callback queue for RPC replies
         result = self.channel.queue_declare(queue='', exclusive=True)
         self.callback_queue = result.method.queue
 
@@ -28,20 +30,23 @@ class MLServiceRpcClient(object):
         )
     def on_response(self, ch, method, props, body):
         if self.corr_id == props.correlation_id:
-            self.response = body
+            try:
+                self.response = json.loads(body)
+            except Exception:
+                self.response = None
 
-    def call(self, message: str) -> bool:
+    def call(self, message: str) -> dict:
         self.response = None
-        self.corr_id = str(uuid.uuid4)
+        self.corr_id = str(uuid.uuid4())
         self.channel.basic_publish(
             exchange='',
-            routing_key='rpc_queue',
+            routing_key='ml_task_queue',
             properties=pika.BasicProperties(
                 reply_to=self.callback_queue,
                 correlation_id=self.corr_id,
             ),
-            body = json.dumps({"text": message})
+            body=json.dumps({"text": message})
         )
         while self.response is None:
-            self.connection.process_data_events()
-        return int(self.response)
+            self.connection.process_data_events(time_limit=1)
+        return self.response
