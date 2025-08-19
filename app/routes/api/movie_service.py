@@ -13,6 +13,8 @@ from database.config import get_settings
 from pgvector.sqlalchemy import Vector
 from sqlmodel import select
 from auth.basic import get_current_user
+from sqlalchemy import text
+
 
 movie_service_route = APIRouter()
 
@@ -56,12 +58,13 @@ async def new_prediction(
     try:
         ml_service_rpc = MLServiceRpcClient(get_settings())
         response = ml_service_rpc.call(message)
+        emb = response.get("request_embedding", [])
+        if not isinstance(emb, list) or len(emb) != 384:
+            raise HTTPException(status_code=500, detail="Bad embedding size")
 
-        # Поиск подходящих фильмов
+        session.exec(text("SET LOCAL ivfflat.probes = 10"))
         movies = session.exec(
-            select(Movie)
-            .order_by(Movie.embedding.cast(Vector).op("<=>")(response["request_embedding"]))
-            .limit(top)
+            select(Movie).order_by(Movie.embedding.cast(Vector).op("<=>")(emb)).limit(top)
         ).all()
 
         # Сохраняем предикт в базу

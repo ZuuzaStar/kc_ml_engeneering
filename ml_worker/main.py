@@ -13,7 +13,7 @@ logger.remove()
 logger.add(sys.stderr, level="INFO")
 
 # Инициализация модели
-embedding_generator = EmbeddingGenerator(ModelTypes.BASIC.value)
+embedding_generator = EmbeddingGenerator(ModelTypes.MULTILINGUAL.value)
 
 # Подключение к RabbitMQ (как в учебном примере)
 settings = get_settings()

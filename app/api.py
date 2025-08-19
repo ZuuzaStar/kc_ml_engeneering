@@ -62,7 +62,7 @@ def on_startup():
                 from models.constants import ModelTypes
                 if len(get_all_movies(session)) == 0:
                     logger.info("No movies found. Seeding demo/movie dataset...")
-                    model = SentenceTransformer('sentence-transformers/' + ModelTypes.BASIC.value)
+                    model = SentenceTransformer('sentence-transformers/' + ModelTypes.MULTILINGUAL.value)
                     update_movie_database(model, session)
                     logger.info("Movie dataset seeded")
             except Exception as seed_err:
