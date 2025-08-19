@@ -14,6 +14,7 @@ from pgvector.sqlalchemy import Vector
 from sqlmodel import select
 from auth.basic import get_current_user
 from sqlalchemy import text
+from loguru import logger
 
 
 movie_service_route = APIRouter()
