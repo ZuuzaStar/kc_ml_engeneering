@@ -4,10 +4,12 @@ from typing import List, Dict
 import logging
 from models.user import User
 from models.wallet import Wallet
+from models import UserSignupRequest, UserSigninRequest, UserEmailRequest, BalanceAdjustRequest
 from models.transaction import Transaction
 from models.constants import TransactionCost, TransactionType
 from services.crud import user as UserService
 from services.crud import wallet as WalletService
+from auth.basic import get_current_user
 
 
 
@@ -22,7 +24,7 @@ user_route = APIRouter()
     status_code=status.HTTP_201_CREATED,
     summary="User Registration",
     description="Register a new user with email and password")
-async def signup(data: User, session=Depends(get_session)) -> Dict[str, str]:
+async def signup(data: UserSignupRequest, session=Depends(get_session)) -> Dict[str, str]:
     """
     Create new user account.
 
@@ -43,25 +45,9 @@ async def signup(data: User, session=Depends(get_session)) -> Dict[str, str]:
                 status_code=status.HTTP_409_CONFLICT,
                 detail="User with this email already exists"
             )
-        # Сначала создаем пустой кошелек
-        wallet = Wallet()
-    
-        # Потом создаем пользователя c этим кошельком
-        user = User(
-            email=data.email,
-            password_hash=UserService.hash_password(data.password),
-            wallet_id=wallet.id,
-            wallet=wallet
-        )
-        # Персонализируем кошелек
-        wallet.user_id = user.id
-
-        WalletService.create_wallet(wallet, session)
-        UserService.create_user(user, session)
+        UserService.create_user(email=data.email, password=data.password, session=session)
         logger.info(f"New user registered: {data.email}")
-
-        WalletService.make_transaction(wallet, TransactionCost.ENTRY_BONUS.value, TransactionType.ENTRY_BONUS, session)
-        logger.info(f"Start bonus add: {data.email}")
+        logger.info(f"Start bonus has been added: {data.email}")
         return {"message": "User successfully registered"}
 
     except Exception as e:
@@ -72,7 +58,7 @@ async def signup(data: User, session=Depends(get_session)) -> Dict[str, str]:
         )
 
 @user_route.post('/signin')
-async def signin(data: User, session=Depends(get_session)) -> Dict[str, str]:
+async def signin(data: UserSigninRequest, session=Depends(get_session)) -> Dict[str, str]:
     """
     Authenticate existing user.
 
@@ -91,14 +77,14 @@ async def signin(data: User, session=Depends(get_session)) -> Dict[str, str]:
         logger.warning(f"Login attempt with non-existent email: {data.email}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User does not exist")
     
-    if user.password != UserService.hash_password(data.password):
+    if not UserService.verify_password(data.password, user.password_hash):
         logger.warning(f"Failed login attempt for user: {data.email}")
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Wrong credentials passed")
     
     return {"message": "User signed in successfully"}
 
 @user_route.get('/balance')
-async def get_balance(data: User, session=Depends(get_session)) -> Dict[str, float]:
+async def get_balance(data: UserEmailRequest, session=Depends(get_session)) -> Dict[str, float]:
     """
     Get wallet balance.
 
@@ -126,8 +112,8 @@ async def get_balance(data: User, session=Depends(get_session)) -> Dict[str, flo
             detail="Error"
         )
     
-@user_route.get('/balance/adjust')    
-async def adjust_balance(user: User, amount: float, session=Depends(get_session)) -> Dict[str, str]:
+@user_route.post('/balance/adjust')
+async def adjust_balance(data: BalanceAdjustRequest, session=Depends(get_session)) -> Dict[str, str]:
     """
     Adjust wallet balance.
 
@@ -139,7 +125,10 @@ async def adjust_balance(user: User, amount: float, session=Depends(get_session)
         dict: Success message
     """
     try:
-        WalletService.make_transaction(user.wallet, TransactionCost.ENTRY_BONUS.value, TransactionType.ENTRY_BONUS, session)
+        user = UserService.get_user_by_email(data.email, session)
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User does not exist")
+        WalletService.make_transaction(user.wallet, data.amount, TransactionType.ADMIN_ADJUSTMENT, session)
         logger.info(f"Successfull balance adjustment for {user.email}")
         return {"message": "Successfull balance adjustment"}
 
@@ -152,9 +141,27 @@ async def adjust_balance(user: User, amount: float, session=Depends(get_session)
     
 @user_route.get("/transaction/history", response_model=List[Transaction]) 
 async def get_transaction_history(
-    data: User, 
+    data: UserEmailRequest, 
     session=Depends(get_session)
     ) -> List[Transaction]:
     user = UserService.get_user_by_email(data.email, session)
     predictions = user.wallet.transactions
     return predictions
+
+@user_route.get('/balance-auth')
+async def get_balance_auth(
+    user: User = Depends(get_current_user),
+    session=Depends(get_session)
+) -> Dict[str, float]:
+    user = UserService.get_user_by_email(user.email, session)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User with this email does not exist")
+    return {"Current balance": user.wallet.balance}
+
+@user_route.get("/transaction/history-auth", response_model=List[Transaction])
+async def get_transaction_history_auth(
+    user: User = Depends(get_current_user),
+    session=Depends(get_session)
+) -> List[Transaction]:
+    user = UserService.get_user_by_email(user.email, session)
+    return user.wallet.transactions

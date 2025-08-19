@@ -71,7 +71,7 @@ if __name__ == "__main__":
         # Если фильмов нет, загружаем из JSON файлов
         if movies_count == 0:
             logger.info("Загружаем фильмы из JSON файлов...")
-            model = SentenceTransformer('sentence-transformers/' + ModelTypes.BASIC.value)
+            model = SentenceTransformer('sentence-transformers/' + ModelTypes.MULTILINGUAL.value)
             update_movie_database(model, session)
             logger.info('База данных с фильмами успешно обновлена')
         else:

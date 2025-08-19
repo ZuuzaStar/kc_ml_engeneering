@@ -5,8 +5,6 @@ import sys
 from loguru import logger
 from constants import ModelTypes
 from config import get_settings
-from sentence_transformers import SentenceTransformer
-from constants import ModelTypes
 from embedding import EmbeddingGenerator
 
 
@@ -15,7 +13,7 @@ logger.remove()
 logger.add(sys.stderr, level="INFO")
 
 # Инициализация модели
-embedding_generator = EmbeddingGenerator(ModelTypes.BASIC.value)
+embedding_generator = EmbeddingGenerator(ModelTypes.MULTILINGUAL.value)
 
 # Подключение к RabbitMQ (как в учебном примере)
 settings = get_settings()
@@ -31,17 +29,15 @@ connection = pika.BlockingConnection(pika.ConnectionParameters(
     blocked_connection_timeout=2
 ))
 
-# Названия очередей
+# Названия очередей (RPC style: requests sent to task_queue, replies go to reply_to)
 task_queue = 'ml_task_queue'
-result_queue = 'ml_result_queue'
 
-# Создание очереди для задач
 channel = connection.channel()
-channel.queue_declare(queue=task_queue)
+channel.queue_declare(queue=task_queue, durable=False)
 
 # Функция генерации ембендингов
 def get_embedding(input_text: str):
-    return embedding_generator.encode(input_text)
+    return embedding_generator.get_embedding(input_text)
 
 def send_result_to_queue(result_data, properties):
     """Отправка результата в очередь результатов"""
@@ -81,14 +77,13 @@ def on_request(ch, method, properties, body):
             raise
         processing_time = time.time() - start_time
                 
-        # Отправка результата в очередь результатов
+        # Отправка результата
         result_data = {
             "request_embedding": request_embedding,
             "processing_time": processing_time,
             "status": "success"
         }
         
-        # Отправка в очередь результатов
         send_result_to_queue(result_data, properties)
         
         # Подтверждение обработки

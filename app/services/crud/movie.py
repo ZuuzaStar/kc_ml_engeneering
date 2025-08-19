@@ -181,7 +181,8 @@ def update_movie_database(
     """
     try:
         # Путь к директории с JSON файлами
-        data_dir = Path(__file__).parent.parent / 'data'
+        # /app/services/crud/movie.py -> /app/data
+        data_dir = Path(__file__).resolve().parents[2] / 'data'
         
         if not data_dir.exists():
             raise FileNotFoundError(f"Директория {data_dir} не найдена")
@@ -190,7 +191,37 @@ def update_movie_database(
         json_files = list(data_dir.glob('*.json'))
         
         if not json_files:
-            raise FileNotFoundError(f"JSON файлы не найдены в директории {data_dir}")
+            logger.warning(f"JSON файлы не найдены в директории {data_dir}. Будет использован демо-набор.")
+            demo_movies = [
+                {
+                    "title": "The Matrix",
+                    "description": "A hacker discovers the true nature of his reality and his role in the war against its controllers.",
+                    "year": 1999,
+                    "genres": ["Action", "Sci-Fi"]
+                },
+                {
+                    "title": "Inception",
+                    "description": "A thief who steals corporate secrets through dream-sharing technology is given the inverse task of planting an idea.",
+                    "year": 2010,
+                    "genres": ["Action", "Sci-Fi", "Thriller"]
+                },
+                {
+                    "title": "Interstellar",
+                    "description": "A team of explorers travel through a wormhole in space in an attempt to ensure humanity's survival.",
+                    "year": 2014,
+                    "genres": ["Adventure", "Drama", "Sci-Fi"]
+                }
+            ]
+            desc_list = [m['description'] for m in demo_movies]
+            embedding_list = model.encode(desc_list)
+            for i, m in enumerate(demo_movies):
+                m['embedding'] = embedding_list[i].tolist()
+                try:
+                    add_movie(m, session)
+                except Exception as e:
+                    logger.info(f"Demo movie skipped: {e}")
+            logger.info("Демо фильмы добавлены")
+            return
         
         total_added_count = 0
         total_skipped_count = 0

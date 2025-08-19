@@ -32,10 +32,12 @@ def make_transaction(
     
     try:
         transaction = Transaction(
+            user_id=wallet.user_id,
             wallet_id=wallet.id,
             amount=amount,
             type=type,
-            wallet=wallet
+            wallet=wallet,
+            user=wallet.user
         )
         
         wallet.transactions.append(transaction)
@@ -100,7 +102,7 @@ def get_wallet_by_id(
 
 
 def get_wallet_by_user_id(
-    id: int, 
+    id: int,
     session: Session
 ) -> Optional[Wallet]:
     """
@@ -113,7 +115,7 @@ def get_wallet_by_user_id(
     Returns:
         Optional[Wallet]: Найденный кошелек или None
     """
-    user = UserService.get_user_by_id(id)
+    user = UserService.get_user_by_id(id, session)
     try:
         statement = select(Wallet).where(Wallet.user_id == user.id)
         wallet = session.exec(statement).first()
