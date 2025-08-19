@@ -25,7 +25,7 @@ BASE_CSS = """
   .movie{display:grid;grid-template-columns:1fr;gap:6px;padding:12px;border-bottom:1px dashed var(--border)} .movie:last-child{border-bottom:0}
   .tag{display:inline-block;padding:2px 8px;font-size:12px;border-radius:999px;background:#0d1b36;border:1px solid var(--border);color:var(--muted);margin-right:6px}
   .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
-  .link{color:var(--muted)} .error{color:var(--danger);font-size:13px;min-height:18px}
+  .link{color:var(--muted)} .error{color:var(--danger);font-size:13px;min-height:18px} .success{color:var(--accent-2);font-size:13px;min-height:18px}
   .hidden{display:none}
   /* Modal */
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:50}
@@ -153,10 +153,11 @@ async function topUp(){
 }
 function renderMovies(list){if(!Array.isArray(list)||list.length===0) return '<div class="muted">No recommendations yet</div>'; return list.map(m=>`<div class="movie"><div><strong>${m.title??'-'} (${m.year??'-'})</strong></div><div class="muted">${(m.description??'').slice(0,320)}</div><div>${(m.genres||[]).map(g=>`<span class="tag">${g}</span>`).join('')}</div></div>`).join('')}
 async function newPrediction(){
-    setText('status','');
+    setText('pred_error','');
+    document.getElementById('pred_error').className='error';
     const msg=document.getElementById('prompt').value.trim();
-    if(!msg) return setText('status','Enter your request');
-    setText('status','Processing...');
+    if(!msg) return setText('pred_error','Enter your request');
+    setText('pred_error','Processing...');
     try{
         const r=await fetch(`/api/events/prediction/new?message=${encodeURIComponent(msg)}&top=10`,{method:'POST',headers:authHeader()});
         if(!r.ok){
@@ -165,14 +166,20 @@ async function newPrediction(){
                 openAuthModal('Session expired. Please sign in again');
                 return;
             }
-            return setText('status',`Error: ${err}`);
+            document.getElementById('pred_error').className='error';
+            return setText('pred_error',`Error: ${err}`);
         }
         const data=await r.json();
-        if(data.length===0) return setText('status','No recommendations found');
+        if(data.length===0) {
+            document.getElementById('pred_error').className='error';
+            return setText('pred_error','No recommendations found');
+        }
         setHTML('pred_list', renderMovies(data));
-        setText('status','Recommendations ready!');
+        setText('pred_error','Recommendations ready!');
+        document.getElementById('pred_error').className='success';
     }catch(e){
-        setText('status',`Error: ${e.message}`);
+        document.getElementById('pred_error').className='error';
+        setText('pred_error',`Error: ${e.message}`);
     }
 }
 (function addLogout(){
