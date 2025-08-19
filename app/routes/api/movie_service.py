@@ -23,83 +23,59 @@ movie_service_route = APIRouter()
     response_model=List[PredictionOut]
 )
 async def get_prediction_history(
-    user: User, 
+    user: User = Depends(get_current_user),
     session=Depends(get_session)
-    ) -> List[PredictionOut]:
-    user = UserService.get_user_by_email(user.email, session)
-    return user.predictions
+) -> List[PredictionOut]:
+    """
+    Get prediction history for authenticated user.
+
+    Args:
+        user: Current authenticated user
+        session: Database session
+
+    Returns:
+        List[PredictionOut]: List of user predictions
+    """
+    try:
+        return user.predictions
+    except Exception as e:
+        logger.error(f"Error getting prediction history: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error getting prediction history"
+        )
 
 @movie_service_route.post(
     "/prediction/new",
     response_model=List[MovieOut]
 )
 async def new_prediction(
-    user: User, 
-    message: str,
-    top: int = 10,
-    session=Depends(get_session)
-) -> List[MovieOut]: 
-    """
-    Эндпоинт, возвращающий рекомендации
-
-    Returns:
-        List[Movie]: Список фильмов
-    """
-    if not session.get(User, user.id):
-        raise ValueError("Пользователя с таким id не существует")
-    if user.is_admin:
-        cost = TransactionCost.ADMIN.value
-    else:
-        cost = TransactionCost.BASIC.value
-    try:
-        WalletService.make_transaction(user.wallet, -cost, TransactionType.PREDICTION, session)
-    except Exception as e:
-        raise e
-    try:
-        ml_service_rpc = MLServiceRpcClient(get_settings())
-        response = ml_service_rpc.call(message)
-        emb = response.get("request_embedding", [])
-        if not isinstance(emb, list) or len(emb) != 384:
-            raise HTTPException(status_code=500, detail="Bad embedding size")
-
-        session.exec(text("SET LOCAL ivfflat.probes = 10"))
-        movies = session.exec(
-            select(Movie).order_by(Movie.embedding.cast(Vector).op("<=>")(emb)).limit(top)
-        ).all()
-
-        # Сохраняем предикт в базу
-        PredictionService.create_prediction(user, message, response["request_embedding"], cost, movies, session)
-
-        return movies
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@movie_service_route.get("/prediction/history-auth", response_model=List[PredictionOut])
-async def get_prediction_history_auth(
-    user: User = Depends(get_current_user),
-    session=Depends(get_session)
-) -> List[PredictionOut]:
-    user = UserService.get_user_by_email(user.email, session)
-    return user.predictions
-
-@movie_service_route.post("/prediction/new-auth", response_model=List[MovieOut])
-async def new_prediction_auth(
     message: str,
     top: int = 10,
     user: User = Depends(get_current_user),
     session=Depends(get_session)
 ) -> List[MovieOut]:
+    """
+    Get movie recommendations for authenticated user.
+
+    Args:
+        message: User request text
+        top: Number of recommendations to return
+        user: Current authenticated user
+        session: Database session
+
+    Returns:
+        List[MovieOut]: List of recommended movies
+    """
     if top <= 0:
         raise HTTPException(status_code=400, detail="Invalid 'top' value")
-    user = UserService.get_user_by_email(user.email, session)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    cost = TransactionCost.ADMIN.value if user.is_admin else TransactionCost.BASIC.value
+    
     try:
+        cost = TransactionCost.ADMIN.value if user.is_admin else TransactionCost.BASIC.value
         WalletService.make_transaction(user.wallet, -cost, TransactionType.PREDICTION, session)
     except Exception as e:
         raise HTTPException(status_code=402, detail=str(e))
+    
     try:
         ml_service_rpc = MLServiceRpcClient(get_settings())
         response = ml_service_rpc.call(message)

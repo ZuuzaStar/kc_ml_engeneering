@@ -9,7 +9,7 @@ from models.transaction import Transaction
 from models.constants import TransactionCost, TransactionType
 from services.crud import user as UserService
 from services.crud import wallet as WalletService
-from auth.basic import get_current_user
+from auth.basic import get_current_user, validate_password_strength
 
 
 
@@ -26,7 +26,7 @@ user_route = APIRouter()
     description="Register a new user with email and password")
 async def signup(data: UserSignupRequest, session=Depends(get_session)) -> Dict[str, str]:
     """
-    Create new user account.
+    User registration.
 
     Args:
         data: User registration data
@@ -34,22 +34,31 @@ async def signup(data: UserSignupRequest, session=Depends(get_session)) -> Dict[
 
     Returns:
         dict: Success message
-
-    Raises:
-        HTTPException: If user already exists
     """
     try:
-        if UserService.get_user_by_email(data.email, session):
-            logger.warning(f"Signup attempt with existing email: {data.email}")
+        # Validate password strength
+        if not validate_password_strength(data.password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 8 characters long and contain uppercase, lowercase letters and numbers"
+            )
+        
+        # Check if user already exists
+        existing_user = UserService.get_user_by_email(data.email, session)
+        if existing_user:
+            logger.warning(f"Registration attempt with existing email: {data.email}")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="User with this email already exists"
             )
-        UserService.create_user(email=data.email, password=data.password, session=session)
+        
+        UserService.create_user(email=data.email, password=data.password, session=session, is_admin=data.is_admin)
         logger.info(f"New user registered: {data.email}")
         logger.info(f"Start bonus has been added: {data.email}")
         return {"message": "User successfully registered"}
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error during signup: {str(e)}")
         raise HTTPException(
@@ -60,49 +69,47 @@ async def signup(data: UserSignupRequest, session=Depends(get_session)) -> Dict[
 @user_route.post('/signin')
 async def signin(data: UserSigninRequest, session=Depends(get_session)) -> Dict[str, str]:
     """
-    Authenticate existing user.
+    User signin.
 
     Args:
-        form_data: User credentials
+        data: User signin data
         session: Database session
 
     Returns:
         dict: Success message
-
-    Raises:
-        HTTPException: If authentication fails
     """
-    user = UserService.get_user_by_email(data.email, session)
-    if user is None:
-        logger.warning(f"Login attempt with non-existent email: {data.email}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User does not exist")
-    
-    if not UserService.verify_password(data.password, user.password_hash):
-        logger.warning(f"Failed login attempt for user: {data.email}")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Wrong credentials passed")
-    
-    return {"message": "User signed in successfully"}
+    try:
+        user = UserService.get_user_by_email(data.email, session)
+        if not user:
+            logger.warning(f"Failed login attempt for user: {data.email}")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Wrong credentials passed")
+        
+        if not UserService.verify_password(data.password, user.password_hash):
+            logger.warning(f"Failed login attempt for user: {data.email}")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Wrong credentials passed")
+        
+        return {"message": "User signed in successfully"}
+
+    except Exception as e:
+        logger.error(f"Error during signin: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Signin Error"
+        )
 
 @user_route.get('/balance')
-async def get_balance(data: UserEmailRequest, session=Depends(get_session)) -> Dict[str, float]:
+async def get_balance(user: User = Depends(get_current_user), session=Depends(get_session)) -> Dict[str, float]:
     """
     Get wallet balance.
 
     Args:
-        form_data: User credentials
+        user: Current authenticated user
         session: Database session
 
     Returns:
         float: User balance
     """
     try:
-        user = UserService.get_user_by_email(data.email, session)
-        if not user:
-            logger.warning(f"Wrong email: {data.email}")
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="User with this email does not exists"
-            )
         return {'Current balance': user.wallet.balance}
     
     except Exception as e:
@@ -111,57 +118,66 @@ async def get_balance(data: UserEmailRequest, session=Depends(get_session)) -> D
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error"
         )
-    
+
 @user_route.post('/balance/adjust')
-async def adjust_balance(data: BalanceAdjustRequest, session=Depends(get_session)) -> Dict[str, str]:
+async def adjust_balance(
+    data: BalanceAdjustRequest, 
+    user: User = Depends(get_current_user),
+    session=Depends(get_session)
+) -> Dict[str, str]:
     """
-    Adjust wallet balance.
+    Adjust wallet balance with authentication.
 
     Args:
-        data: User registration data
+        data: Balance adjustment data
+        user: Current authenticated user
         session: Database session
 
     Returns:
         dict: Success message
     """
     try:
-        user = UserService.get_user_by_email(data.email, session)
-        if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User does not exist")
-        WalletService.make_transaction(user.wallet, data.amount, TransactionType.ADMIN_ADJUSTMENT, session)
-        logger.info(f"Successfull balance adjustment for {user.email}")
-        return {"message": "Successfull balance adjustment"}
+        # Проверяем, что пользователь пытается изменить свой собственный баланс
+        if user.email != data.email:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, 
+                detail="You can only adjust your own balance"
+            )
+        
+        # Определяем тип транзакции в зависимости от прав пользователя
+        transaction_type = TransactionType.ADMIN_ADJUSTMENT if user.is_admin else TransactionType.DEPOSIT
+        
+        WalletService.make_transaction(user.wallet, data.amount, transaction_type, session)
+        logger.info(f"Successful balance adjustment for {user.email} (type: {transaction_type})")
+        return {"message": "Successful balance adjustment"}
 
     except Exception as e:
-        logger.error(f"Error during adjustment: {str(e)}")
+        logger.error(f"Error during balance adjustment: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Adjustment Error"
         )
     
-@user_route.get("/transaction/history", response_model=List[Transaction]) 
+@user_route.get("/transaction/history", response_model=List[Transaction])
 async def get_transaction_history(
-    data: UserEmailRequest, 
-    session=Depends(get_session)
-    ) -> List[Transaction]:
-    user = UserService.get_user_by_email(data.email, session)
-    predictions = user.wallet.transactions
-    return predictions
-
-@user_route.get('/balance-auth')
-async def get_balance_auth(
-    user: User = Depends(get_current_user),
-    session=Depends(get_session)
-) -> Dict[str, float]:
-    user = UserService.get_user_by_email(user.email, session)
-    if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User with this email does not exist")
-    return {"Current balance": user.wallet.balance}
-
-@user_route.get("/transaction/history-auth", response_model=List[Transaction])
-async def get_transaction_history_auth(
     user: User = Depends(get_current_user),
     session=Depends(get_session)
 ) -> List[Transaction]:
-    user = UserService.get_user_by_email(user.email, session)
-    return user.wallet.transactions
+    """
+    Get transaction history for authenticated user.
+
+    Args:
+        user: Current authenticated user
+        session: Database session
+
+    Returns:
+        List[Transaction]: List of user transactions
+    """
+    try:
+        return user.wallet.transactions
+    except Exception as e:
+        logger.error(f"Error getting transaction history: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error getting transaction history"
+        )

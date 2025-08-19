@@ -39,12 +39,15 @@ async def web_index():
 <body><div class='container'>
   <div class='topbar'>
     <div class='row' style='gap:12px;'><strong>Movie Recommender</strong><span class='muted'>Demo</span></div>
-    <a id='history_link' class='link hidden' href='/web/history'>History →</a>
+    <div class='row' style='gap:12px;'>
+      <a id='prediction_history_link' class='link hidden' href='/web/prediction-history'>Prediction History →</a>
+      <a id='transaction_history_link' class='link hidden' href='/web/transaction-history'>Transaction History →</a>
+    </div>
   </div>
   <div class='grid'>
     <div class='stack'>
       <div class='card'>
-        <h3 class='title'>Auth</h3>
+        <h3 class='title' id='auth_title'>Authorisation</h3>
         <div class='stack'>
           <div id='auth_inputs'>
             <div class='stack'>
@@ -86,8 +89,10 @@ async def web_index():
     <div class='card'>
       <h3 class='title'>Recommendations</h3>
       <div class='stack'>
-        <input id='prompt' class='input' type='text' placeholder='What would you like to watch?'/>
-        <div class='row'><input id='top' class='input' type='number' min='1' value='10' style='max-width:120px;'/><button id='req_btn' class='btn primary' onclick='newPrediction()' disabled>Request</button></div>
+        <div class='row' style='gap:8px; align-items:center;'>
+          <input id='prompt' class='input' type='text' placeholder='What would you like to watch?' style='flex:1;'/>
+          <button id='req_btn' class='btn primary' onclick='newPrediction()' disabled>Request</button>
+        </div>
         <div id='pred_list' class='scroll' aria-live='polite'></div>
         <div id='pred_error' class='error'></div>
       </div>
@@ -112,20 +117,64 @@ function showAuthStatus(email){
   var p=document.getElementById('password');
   if(e) e.value='';
   if(p) p.value='';
-  var hb=document.getElementById('history_link');
-  if(hb) hb.classList.remove('hidden');
+  var phl=document.getElementById('prediction_history_link');
+  var thl=document.getElementById('transaction_history_link');
+  if(phl) phl.classList.remove('hidden');
+  if(thl) thl.classList.remove('hidden');
   var rb=document.getElementById('req_btn');
   if(rb) rb.disabled=false;
   var bc=document.getElementById('balance_card');
   if(bc) bc.classList.remove('hidden');
+  var at=document.getElementById('auth_title');
+  if(at) at.textContent='Profile';
 }
-function showAuthInputs(){var a=document.getElementById('auth_inputs'); var b=document.getElementById('auth_status'); if(a&&b){a.classList.remove('hidden'); b.classList.add('hidden');}}
+function showAuthInputs(){var a=document.getElementById('auth_inputs'); var b=document.getElementById('auth_status'); if(a&&b){a.classList.remove('hidden'); b.classList.add('hidden');} var at=document.getElementById('auth_title'); if(at) at.textContent='Authorisation';}
 async function signup(){const e=document.getElementById('email').value,p=document.getElementById('password').value; if(!e||!p) return setText('auth_msg','Enter email & password'); const r=await fetch('/api/users/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:e,password:p})}); setCreds(e,p); setText('auth_msg',r.ok?'Signed up':'Signup failed'); if(r.ok){ showAuthStatus(e); getBalance(); }}
 async function signin(){const e=document.getElementById('email').value,p=document.getElementById('password').value; if(!e||!p) return setText('auth_msg','Enter email & password'); const r=await fetch('/api/users/signin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:e,password:p})}); setCreds(e,p); setText('auth_msg',r.ok?'Signed in':'Signin failed'); if(r.ok){ showAuthStatus(e); getBalance(); }}
-async function getBalance(){setText('balance_error',''); const r=await fetch('/api/users/balance-auth',{headers:authHeader()}); if(!r.ok) return setText('balance_error','Unable to fetch balance'); try{const d=await r.json(); setText('balance', (d['Current balance']??'—'));}catch(e){setText('balance','—')}}
-async function topUp(){setText('balance_error',''); const a=parseFloat(document.getElementById('topup').value||'0'); const {email}=getCreds(); if(!email||!a) return setText('balance_error','Enter amount & be logged in'); const r=await fetch('/api/users/balance/adjust',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email,amount:a})}); if(!r.ok) return setText('balance_error','Top up failed'); getBalance()}
+async function getBalance(){
+    setText('balance_error','');
+    const r=await fetch('/api/users/balance',{headers:authHeader()});
+    if(!r.ok) return setText('balance_error','Unable to fetch balance');
+    try{
+        const d=await r.json();
+        setText('balance', (d['Current balance']??'—'));
+    }catch(e){
+        setText('balance_error','Error parsing response');
+    }
+}
+async function topUp(){
+    setText('balance_error','');
+    const a=parseFloat(document.getElementById('topup').value||'0');
+    const {email}=getCreds();
+    if(!email||!a) return setText('balance_error','Enter amount & be logged in');
+    const r=await fetch('/api/users/balance/adjust',{method:'POST',headers:{...authHeader(),'Content-Type':'application/json'},body:JSON.stringify({email:email,amount:a})});
+    if(!r.ok) return setText('balance_error','Top up failed');
+    getBalance();
+}
 function renderMovies(list){if(!Array.isArray(list)||list.length===0) return '<div class="muted">No recommendations yet</div>'; return list.map(m=>`<div class="movie"><div><strong>${m.title??'-'} (${m.year??'-'})</strong></div><div class="muted">${(m.description??'').slice(0,320)}</div><div>${(m.genres||[]).map(g=>`<span class="tag">${g}</span>`).join('')}</div></div>`).join('')}
-async function newPrediction(){setText('pred_error',''); const creds=getCreds(); if(!creds.email||!creds.password){openAuthModal('Please sign in to request recommendations'); return;} const msg=document.getElementById('prompt').value.trim(); const top=parseInt(document.getElementById('top').value||'10',10); if(!msg) return setText('pred_error','Enter your request'); const r=await fetch(`/api/events/prediction/new-auth?message=${encodeURIComponent(msg)}&top=${top}`,{method:'POST',headers:authHeader()}); if(!r.ok){const err=await r.text(); if(r.status===401){openAuthModal('Session expired. Please sign in again'); return;} return setText('pred_error', err||'Request failed')} const data=await r.json(); setHTML('pred_list', renderMovies(data))}
+async function newPrediction(){
+    setText('status','');
+    const msg=document.getElementById('prompt').value.trim();
+    if(!msg) return setText('status','Enter your request');
+    setText('status','Processing...');
+    try{
+        const r=await fetch(`/api/events/prediction/new?message=${encodeURIComponent(msg)}&top=10`,{method:'POST',headers:authHeader()});
+        if(!r.ok){
+            const err=await r.text();
+            if(r.status===401){
+                openAuthModal('Session expired. Please sign in again');
+                return;
+            }
+            return setText('status',`Error: ${err}`);
+        }
+        const data=await r.json();
+        if(data.length===0) return setText('status','No recommendations found');
+        setHTML('pred_list', renderMovies(data));
+        setText('status','Recommendations ready!');
+    }catch(e){
+        setText('status',`Error: ${e.message}`);
+    }
+}
 (function addLogout(){
   if(!window.logout){
     window.logout = function(){
@@ -134,7 +183,8 @@ async function newPrediction(){setText('pred_error',''); const creds=getCreds();
       setText('balance','—');
       setHTML('pred_list','');
       setText('auth_msg','Logged out');
-      var hb=document.getElementById('history_link'); if(hb) hb.classList.add('hidden');
+      var phl=document.getElementById('prediction_history_link'); if(phl) phl.classList.add('hidden');
+      var thl=document.getElementById('transaction_history_link'); if(thl) thl.classList.add('hidden');
       var rb=document.getElementById('req_btn'); if(rb) rb.disabled=true;
       var bc=document.getElementById('balance_card'); if(bc) bc.classList.add('hidden');
     }
@@ -164,12 +214,12 @@ function openAuthModal(message){
     return HTMLResponse(content=html, status_code=200)
 
 
-@web_ui.get("/web/history", response_class=HTMLResponse)
-async def web_history():
+@web_ui.get("/web/prediction-history", response_class=HTMLResponse)
+async def web_prediction_history():
     html = """
 <!DOCTYPE html><html><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width,initial-scale=1'/><title>Prediction History</title>""" + "<style>" + BASE_CSS + "</style>" + """</head>
 <body><div class='container'>
-  <div class='topbar'><a class='link' href='/web'>← Back</a><strong>History</strong><span></span></div>
+  <div class='topbar'><a class='link' href='/web'>← Back</a><strong>Prediction History</strong><span></span></div>
   <div id='protected' class='card hidden'>
     <div class='row' style='justify-content:space-between;'>
       <span id='status' class='muted'></span>
@@ -183,8 +233,36 @@ function isAuthed(){try{return !!(localStorage.getItem('email')&&localStorage.ge
 function authHeader(){try{const e=localStorage.getItem('email'),p=localStorage.getItem('password'); if(!e||!p) return {}; return {'Authorization':'Basic '+btoa(e+':'+p)}}catch(_){return {}}}
 function setHTML(id,h){document.getElementById(id).innerHTML=h}
 function setText(id,t){document.getElementById(id).textContent=t}
-function renderHistory(items){if(!Array.isArray(items)||items.length===0) return '<div class="muted">No history yet</div>'; return items.map(it=>`<div class="movie"><div><strong>${new Date(it.timestamp).toLocaleString()}</strong></div><div class="muted">Prompt: ${it.input_text}</div><div class="muted">Cost: ${it.cost}</div><div>${(it.movies||[]).map(m=>`<span class="tag">${m.title}</span>`).join('')}</div></div>`).join('')}
-async function loadHistory(){setText('status',''); const r=await fetch('/api/events/prediction/history-auth',{headers:authHeader()}); if(!r.ok) return setText('status','Failed to load'); const data=await r.json(); setHTML('hist', renderHistory(data))}
+function renderHistory(items){if(!Array.isArray(items)||items.length===0) return '<div class="muted">No prediction history yet</div>'; return items.map(it=>`<div class="movie"><div><strong>${new Date(it.timestamp).toLocaleString()}</strong></div><div class="muted">Prompt: ${it.input_text}</div><div class="muted">Cost: ${it.cost}</div><div>${(it.movies||[]).map(m=>`<span class="tag">${m.title}</span>`).join('')}</div></div>`).join('')}
+async function loadHistory(){setText('status',''); const r=await fetch('/api/events/prediction/history',{headers:authHeader()}); if(!r.ok) return setText('status','Failed to load prediction history'); const data=await r.json(); setHTML('hist', renderHistory(data))}
+(function init(){if(!isAuthed()){window.location.href='/web'; return;} document.getElementById('protected').classList.remove('hidden'); loadHistory();})();
+</script>
+</body></html>
+"""
+    return HTMLResponse(content=html, status_code=200)
+
+
+@web_ui.get("/web/transaction-history", response_class=HTMLResponse)
+async def web_transaction_history():
+    html = """
+<!DOCTYPE html><html><head><meta charset='utf-8'/><meta name='viewport' content='width=device-width,initial-scale=1'/><title>Transaction History</title>""" + "<style>" + BASE_CSS + "</style>" + """</head>
+<body><div class='container'>
+  <div class='topbar'><a class='link' href='/web'>← Back</a><strong>Transaction History</strong><span></span></div>
+  <div id='protected' class='card hidden'>
+    <div class='row' style='justify-content:space-between;'>
+      <span id='status' class='muted'></span>
+    </div>
+    <div style='height:6px'></div>
+    <div id='hist' class='scroll'></div>
+  </div>
+</div>
+<script>
+function isAuthed(){try{return !!(localStorage.getItem('email')&&localStorage.getItem('password'));}catch(_){return false}}
+function authHeader(){try{const e=localStorage.getItem('email'),p=localStorage.getItem('password'); if(!e||!p) return {}; return {'Authorization':'Basic '+btoa(e+':'+p)}}catch(_){return {}}}
+function setHTML(id,h){document.getElementById(id).innerHTML=h}
+function setText(id,t){document.getElementById(id).textContent=t}
+function renderTransactions(items){if(!Array.isArray(items)||items.length===0) return '<div class="muted">No transaction history yet</div>'; return items.map(it=>`<div class="movie"><div><strong>${new Date(it.timestamp).toLocaleString()}</strong></div><div class="muted">Type: ${it.type}</div><div class="muted">Amount: ${it.amount > 0 ? '+' : ''}${it.amount}</div></div>`).join('')}
+async function loadHistory(){setText('status',''); const r=await fetch('/api/users/transaction/history',{headers:authHeader()}); if(!r.ok) return setText('status','Failed to load transaction history'); const data=await r.json(); setHTML('hist', renderTransactions(data))}
 (function init(){if(!isAuthed()){window.location.href='/web'; return;} document.getElementById('protected').classList.remove('hidden'); loadHistory();})();
 </script>
 </body></html>

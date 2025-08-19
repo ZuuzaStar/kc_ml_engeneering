@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from routes.api.home import home_route
 from routes.api.user import user_route
 from routes.api.movie_service import movie_service_route
@@ -10,6 +11,7 @@ import logging
 from routes.web.ui import web_ui
 from sqlmodel import Session
 from database.database import engine
+import time
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -30,15 +32,6 @@ def create_application() -> FastAPI:
         redoc_url="/api/redoc"
     )
 
-    # Configure CORS
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
     # Register routes
     app.include_router(home_route, tags=['Home'])
     app.include_router(user_route, prefix='/api/users', tags=['Users'])
@@ -48,6 +41,106 @@ def create_application() -> FastAPI:
     return app
 
 app = create_application()
+
+# Security middleware
+@app.middleware("http")
+async def security_logging_middleware(request: Request, call_next):
+    """
+    Middleware for logging security-related information.
+    """
+    start_time = time.time()
+    
+    # Log all requests to protected endpoints
+    if any(protected_path in request.url.path for protected_path in [
+        "/api/users/balance",
+        "/api/users/balance/adjust", 
+        "/api/users/transaction/history",
+        "/api/events/prediction/history",
+        "/api/events/prediction/new"
+    ]):
+        logger.info(f"Protected endpoint access: {request.method} {request.url.path} from {request.client.host}")
+    
+    # Log authentication attempts
+    if request.url.path in ["/api/users/signin", "/api/users/signup"]:
+        logger.info(f"Authentication attempt: {request.method} {request.url.path} from {request.client.host}")
+    
+    response = await call_next(request)
+    
+    # Log response time for performance monitoring
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    
+    return response
+
+# Add security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """
+    Add security headers to all responses.
+    """
+    response = await call_next(request)
+    
+    # Security headers
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    
+    return response
+
+# Add CORS middleware with restricted origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost", "http://localhost:80", "http://localhost:8080"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
+)
+
+# Add trusted host middleware
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=["localhost", "127.0.0.1", "app", "web-proxy"]
+)
+
+# Security middleware for attack prevention
+@app.middleware("http")
+async def attack_prevention_middleware(request: Request, call_next):
+    """
+    Middleware for preventing common attacks.
+    """
+    # Block requests with suspicious headers
+    suspicious_headers = [
+        'x-forwarded-for', 'x-real-ip', 'x-forwarded-proto',
+        'x-forwarded-host', 'x-forwarded-server'
+    ]
+    
+    for header in suspicious_headers:
+        if header in request.headers:
+            logger.warning(f"Suspicious header detected: {header} from {request.client.host}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid request headers"
+            )
+    
+    # Block requests with extremely long paths
+    if len(request.url.path) > 200:
+        logger.warning(f"Path too long from {request.client.host}: {request.url.path}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Path too long"
+        )
+    
+    # Block requests with suspicious query parameters
+    if any(len(str(v)) > 100 for v in request.query_params.values()):
+        logger.warning(f"Query parameter too long from {request.client.host}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Query parameter too long"
+        )
+    
+    response = await call_next(request)
+    return response
 
 @app.on_event("startup") 
 def on_startup():

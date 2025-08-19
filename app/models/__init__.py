@@ -1,25 +1,25 @@
-from pydantic import BaseModel
-from pydantic import ConfigDict
-from typing import List
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from typing import Optional, List
 from datetime import datetime
 
 
 class UserSignupRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
+    is_admin: bool = False
 
 
 class UserSigninRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 
 class UserEmailRequest(BaseModel):
-    email: str
+    email: EmailStr
 
 
 class BalanceAdjustRequest(BaseModel):
-    email: str
+    email: EmailStr
     amount: float
 
 
