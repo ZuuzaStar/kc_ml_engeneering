@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'/>
+    <meta name='viewport' content='width=device-width,initial-scale=1'/>
+    <title>Movie Recommender</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+    <div class='container'>
+        <div class='topbar'>
+            <div class='row' style='gap:12px;'>
+                <strong>Movie Recommender</strong>
+                <span class='muted'>Demo</span>
+            </div>
+            <div class='row' style='gap:12px;'>
+                <a id='prediction_history_link' class='link hidden' href='/web/prediction-history'>Prediction History →</a>
+                <a id='transaction_history_link' class='link hidden' href='/web/transaction-history'>Transaction History →</a>
+            </div>
+        </div>
+        
+        <div class='grid'>
+            <div class='stack'>
+                <div class='card'>
+                    <h3 class='title' id='auth_title'>Authorisation</h3>
+                    <div class='stack'>
+                        <div id='auth_inputs'>
+                            <div class='stack'>
+                                <input id='email' class='input' type='email' placeholder='Email'/>
+                                <input id='password' class='input' type='password' placeholder='Password'/>
+                                <div class='row'>
+                                    <button class='btn primary' onclick='signup()'>Sign up</button>
+                                    <button class='btn' onclick='signin()'>Sign in</button>
+                                    <span id='auth_msg' class='muted'></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id='auth_status' class='row hidden' style='justify-content:space-between;'>
+                            <div class='row' style='gap:8px;'>
+                                <span class='muted'>Signed in as</span>
+                                <strong id='me_email'></strong>
+                            </div>
+                            <button class='btn' onclick='logout()'>Logout</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id='balance_card' class='card hidden'>
+                    <h3 class='title'>Balance</h3>
+                    <div class='stack'>
+                        <div class='row'>
+                            <input id='topup' class='input' type='number' min='1' step='1' placeholder='Top up amount' style='max-width:220px;'/>
+                        </div>
+                        <div class='row' style='align-items:center;'>
+                            <div class='row' style='gap:8px;'>
+                                <button class='btn success' onclick='topUp()'>Top up</button>
+                                <button class='btn' onclick='getBalance()'>Refresh</button>
+                            </div>
+                            <strong id='balance' style='font-size:18px; margin-left:auto;'>—</strong>
+                        </div>
+                        <div id='balance_error' class='error'></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class='card'>
+                <h3 class='title'>Recommendations</h3>
+                <div class='stack'>
+                    <div class='row' style='gap:8px; align-items:center;'>
+                        <input id='prompt' class='input' type='text' placeholder='What would you like to watch?' style='flex:1;'/>
+                        <button id='req_btn' class='btn primary' onclick='newPrediction()' disabled>Request</button>
+                    </div>
+                    <div id='pred_list' class='scroll' aria-live='polite'></div>
+                    <div id='pred_error' class='error'></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/js/main.js"></script>
+    <script>
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
