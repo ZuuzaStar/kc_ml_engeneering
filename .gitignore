@@ -17,6 +17,7 @@ sql/
 notebooks/
 custom_functions/
 examples/
+example/
 models_txt/
 
 # FILES
