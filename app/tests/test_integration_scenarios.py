@@ -29,7 +29,7 @@ class TestIntegrationScenarios:
         """Тест связи кошелька и транзакций"""
         assert mock_transaction.user_id is not None
         assert mock_transaction.wallet_id is not None
-        assert mock_transaction.amount == 50.0
+        assert mock_transaction.amount == 100.0
     
     def test_movie_prediction_data_integrity(self, mock_movie, mock_prediction):
         """Тест целостности данных фильмов и предсказаний"""
@@ -142,7 +142,7 @@ class TestIntegrationScenarios:
         from tests.conftest import TestTransaction
         saved_transaction = session.get(TestTransaction, mock_transaction.id)
         assert saved_transaction is not None
-        assert saved_transaction.amount == 50.0
+        assert saved_transaction.amount == 100.0
         assert saved_transaction.type == "DEPOSIT"
     
     def test_transaction_data_integrity(self, mock_transaction):
@@ -151,9 +151,9 @@ class TestIntegrationScenarios:
         assert mock_transaction.id > 0
         assert mock_transaction.user_id > 0
         assert mock_transaction.wallet_id > 0
-        assert mock_transaction.amount == 50.0
+        assert mock_transaction.amount == 100.0
         assert mock_transaction.type == "DEPOSIT"
-        assert mock_transaction.description == "Test deposit"
+        assert mock_transaction.description == "Test deposit transaction"
         assert mock_transaction.timestamp is not None
         
         # Проверяем типы данных

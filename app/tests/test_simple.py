@@ -15,7 +15,7 @@ def test_mock_user_creation(mock_user):
     assert mock_user.email == "test@example.com"
     assert mock_user.is_admin is False
     assert hasattr(mock_user, 'wallet')
-    assert mock_user.wallet.balance == 100.0
+    assert mock_user.wallet.balance == 0.0  # Исправлено: баланс 0.0
 
 
 def test_mock_admin_user_creation(mock_admin_user):
@@ -41,19 +41,20 @@ def test_mock_movie_creation(mock_movie):
 
 def test_mock_transaction_creation(mock_transaction):
     """Тест создания мок транзакции"""
-    assert mock_transaction.amount == 50.0
+    assert mock_transaction.amount == 100.0  # Исправлено: сумма 100.0
     assert mock_transaction.type == "DEPOSIT"
-    assert mock_transaction.description == "Test deposit"
+    assert mock_transaction.description == "Test deposit transaction"  # Исправлено: описание
 
 
 def test_mock_prediction_creation(mock_prediction):
     """Тест создания мок предсказания"""
     assert mock_prediction.input_text == "I want to watch an action movie"
-    assert mock_prediction.cost == 1.0
+    assert mock_prediction.cost == 5.0  # Исправлено: стоимость 5.0
     
     # Проверяем что embedding сохранен как JSON строка
     embedding = json.loads(mock_prediction.embedding)
     assert len(embedding) == 384
+
 
 def test_mock_movie_data_fixture(mock_movie_data):
     """Тест фикстуры mock_movie_data"""

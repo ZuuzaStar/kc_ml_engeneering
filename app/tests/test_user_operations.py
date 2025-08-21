@@ -11,7 +11,7 @@ class TestUserOperations:
         assert mock_user.email == "test@example.com"
         assert mock_user.is_admin is False
         assert hasattr(mock_user, 'wallet')
-        assert mock_user.wallet.balance == 100.0
+        assert mock_user.wallet.balance == 0.0
     
     def test_user_password_hashing(self, mock_user_data):
         """Тест хеширования пароля пользователя"""
@@ -57,7 +57,7 @@ class TestUserOperations:
         """Тест способности пользователя создавать транзакции"""
         # Проверяем что пользователь может иметь транзакции
         assert mock_transaction.user_id == mock_user.id
-        assert mock_transaction.amount == 50.0
+        assert mock_transaction.amount == 100.0
         assert mock_transaction.type == "DEPOSIT"
     
     def test_user_wallet_transaction_chain(self, mock_user, mock_transaction):

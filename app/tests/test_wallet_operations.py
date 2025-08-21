@@ -11,7 +11,7 @@ class TestWalletOperations:
         
         # Проверяем что баланс неотрицательный
         assert initial_balance >= 0
-        assert initial_balance == 100.0
+        assert initial_balance == 0.0
         
         # Проверяем что кошелек связан с пользователем
         assert mock_user.wallet.user_id == mock_user.id
@@ -19,14 +19,14 @@ class TestWalletOperations:
     def test_wallet_model_creation(self, mock_user):
         """Тест создания модели кошелька"""
         assert hasattr(mock_user, 'wallet')
-        assert mock_user.wallet.balance == 100.0
+        assert mock_user.wallet.balance == 0.0
         assert mock_user.wallet.user_id == mock_user.id
     
     def test_transaction_model_creation(self, mock_transaction):
         """Тест создания модели транзакции"""
-        assert mock_transaction.amount == 50.0
+        assert mock_transaction.amount == 100.0
         assert mock_transaction.type == "DEPOSIT"  # Упрощенная модель использует строку
-        assert mock_transaction.description == "Test deposit"
+        assert mock_transaction.description == "Test deposit transaction"
     
     def test_transaction_constants(self):
         """Тест констант транзакций"""
@@ -49,7 +49,7 @@ class TestWalletOperations:
     
     def test_transaction_amount_validation(self, mock_transaction):
         """Тест валидации суммы транзакции"""
-        assert mock_transaction.amount == 50.0
+        assert mock_transaction.amount == 100.0
         assert mock_transaction.amount > 0
         assert isinstance(mock_transaction.amount, float)
     
@@ -61,7 +61,7 @@ class TestWalletOperations:
     
     def test_transaction_description(self, mock_transaction):
         """Тест описания транзакции"""
-        assert mock_transaction.description == "Test deposit"
+        assert mock_transaction.description == "Test deposit transaction"
         assert isinstance(mock_transaction.description, str)
         assert len(mock_transaction.description) > 0
     

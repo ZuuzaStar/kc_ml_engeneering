@@ -1,66 +1,22 @@
+"""
+Конфигурация pytest для тестов
+"""
 import pytest
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
-from sqlmodel import SQLModel, Session, create_engine 
+from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
-import bcrypt
-from sqlalchemy import Column, String, Integer, Float, Boolean, Text, DateTime
-from sqlalchemy.ext.declarative import declarative_base
+from sqlmodel import SQLModel, create_engine
+import json
 from datetime import datetime
+import bcrypt
 
-# Создаем базовый класс для тестовых моделей
-Base = declarative_base()
+# Импортируем тестовые модели из простой фабрики
+from simple_factory import TestUser, TestWallet, TestTransaction, TestMovie, TestPrediction
 
-# Упрощенные тестовые модели для SQLite
-class TestUser(Base):
-    __tablename__ = "user"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True)
-    password_hash = Column(String)
-    is_admin = Column(Boolean, default=False)
 
-class TestWallet(Base):
-    __tablename__ = "wallet"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, unique=True)
-    balance = Column(Float, default=0.0)
-
-class TestTransaction(Base):
-    __tablename__ = "transaction"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, index=True)
-    wallet_id = Column(Integer, index=True)
-    amount = Column(Float, default=0.0)
-    type = Column(String)
-    description = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-
-class TestMovie(Base):
-    __tablename__ = "movie"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String)
-    description = Column(Text, unique=True)
-    year = Column(Integer)
-    genres = Column(Text)  # JSON строка для эмуляции ARRAY
-    embedding = Column(Text)  # JSON строка для эмуляции Vector
-    timestamp = Column(DateTime, default=datetime.utcnow)
-
-class TestPrediction(Base):
-    __tablename__ = "prediction"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, index=True)
-    input_text = Column(Text)
-    embedding = Column(Text)  # JSON строка для эмуляции Vector
-    cost = Column(Float, default=0.0)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-
-# Создаем простое тестовое приложение без Telegram бота
 def create_test_app():
+    """Создает минимальное тестовое FastAPI приложение"""
     app = FastAPI()
     
     @app.get("/health")
@@ -69,158 +25,177 @@ def create_test_app():
     
     return app
 
-@pytest.fixture(name="session")  
-def session_fixture():  
-    engine = create_engine("sqlite:///testing.db", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
+
+@pytest.fixture(name="session")
+def session_fixture():
+    """Фикстура для создания тестовой сессии БД"""
+    engine = create_engine(
+        "sqlite:///testing.db", 
+        connect_args={"check_same_thread": False}, 
+        poolclass=StaticPool
+    )
+    
+    # Удаляем и создаем таблицы заново для каждого теста
+    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.create_all(engine)
+    
     with Session(engine) as session:
         yield session
 
-@pytest.fixture(name="client") 
-def client_fixture(session: Session):  
-    app = create_test_app()
-    client = TestClient(app)  
-    yield client  
 
-@pytest.fixture
-def mock_user_data():
+@pytest.fixture(name="client")
+def client_fixture():
+    """Фикстура для создания тестового клиента"""
+    app = create_test_app()
+    return TestClient(app)
+
+
+@pytest.fixture(name="db_session")
+def db_session_fixture(session):
+    """Фикстура для работы с БД в тестах"""
+    return session
+
+
+# Фикстуры с тестовыми данными
+@pytest.fixture(name="mock_user_data")
+def mock_user_data_fixture():
     """Тестовые данные пользователя"""
     return {
         "email": "test@example.com",
-        "password": "TestPass123",
+        "password": "testpassword123",
         "is_admin": False
     }
 
-@pytest.fixture
-def mock_user(session, mock_user_data):
-    """Создает тестового пользователя в базе"""
+
+@pytest.fixture(name="mock_user")
+def mock_user_fixture(db_session, mock_user_data):
+    """Создает тестового пользователя в БД"""
     # Хешируем пароль
     password_hash = bcrypt.hashpw(
         mock_user_data["password"].encode("utf-8"), 
         bcrypt.gensalt()
     ).decode("utf-8")
     
+    # Создаем пользователя
     user = TestUser(
         email=mock_user_data["email"],
         password_hash=password_hash,
         is_admin=mock_user_data["is_admin"]
     )
     
-    session.add(user)
-    session.commit()
-    session.refresh(user)
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
     
     # Создаем кошелек для пользователя
-    wallet = TestWallet(user_id=user.id, balance=100.0)
-    session.add(wallet)
-    session.commit()
-    session.refresh(wallet)
+    wallet = TestWallet(user_id=user.id, balance=0.0)
+    db_session.add(wallet)
+    db_session.commit()
+    db_session.refresh(wallet)
     
-    # Добавляем атрибут wallet для совместимости с тестами
-    user.wallet = wallet
+    # Привязываем кошелек к пользователю (только в памяти для тестов)
+    object.__setattr__(user, 'wallet', wallet)
+    object.__setattr__(user, 'transactions', [])
+    object.__setattr__(user, 'predictions', [])
     
     return user
 
-@pytest.fixture
-def mock_admin_user(session):
-    """Создает тестового админа"""
+
+@pytest.fixture(name="mock_admin_user")
+def mock_admin_user_fixture(db_session, mock_user_data):
+    """Создает тестового админа в БД"""
+    # Хешируем пароль
     password_hash = bcrypt.hashpw(
-        "AdminPass123".encode("utf-8"), 
+        mock_user_data["password"].encode("utf-8"), 
         bcrypt.gensalt()
     ).decode("utf-8")
     
-    user = TestUser(
+    # Создаем админа
+    admin_user = TestUser(
         email="admin@example.com",
         password_hash=password_hash,
         is_admin=True
     )
     
-    session.add(user)
-    session.commit()
-    session.refresh(user)
+    db_session.add(admin_user)
+    db_session.commit()
+    db_session.refresh(admin_user)
     
-    wallet = TestWallet(user_id=user.id, balance=1000.0)
-    session.add(wallet)
-    session.commit()
-    session.refresh(wallet)
+    # Создаем кошелек для админа
+    wallet = TestWallet(user_id=admin_user.id, balance=1000.0)
+    db_session.add(wallet)
+    db_session.commit()
+    db_session.refresh(wallet)
     
-    # Добавляем атрибут wallet для совместимости с тестами
-    user.wallet = wallet
+    # Привязываем кошелек к админу (только в памяти для тестов)
+    object.__setattr__(admin_user, 'wallet', wallet)
+    object.__setattr__(admin_user, 'transactions', [])
+    object.__setattr__(admin_user, 'predictions', [])
     
-    return user
+    return admin_user
 
-@pytest.fixture
-def mock_movie_data():
+
+@pytest.fixture(name="mock_movie_data")
+def mock_movie_data_fixture():
     """Тестовые данные фильма"""
     return {
         "title": "Test Movie",
         "description": "A test movie for testing purposes",
         "year": 2023,
-        "genres": ["action", "drama"],  # Оригинальный ARRAY для теста
-        "embedding": [0.1] * 384  # Оригинальный Vector для теста
+        "genres": ["action", "drama"],
+        "embedding": [0.1, 0.2, 0.3, 0.4] * 96  # 384-мерный вектор
     }
 
-@pytest.fixture
-def mock_movie(session, mock_movie_data):
-    """Создает тестовый фильм в базе"""
-    import json
-    
+
+@pytest.fixture(name="mock_movie")
+def mock_movie_fixture(db_session, mock_movie_data):
+    """Создает тестовый фильм в БД"""
+    # Используем простую фабрику, которая автоматически преобразует типы
     movie = TestMovie(
         title=mock_movie_data["title"],
         description=mock_movie_data["description"],
         year=mock_movie_data["year"],
-        genres=json.dumps(mock_movie_data["genres"]),  # Сохраняем как JSON строку
-        embedding=json.dumps(mock_movie_data["embedding"])  # Сохраняем как JSON строку
+        genres=mock_movie_data["genres"],  # Автоматически преобразуется в JSON
+        embedding=mock_movie_data["embedding"]  # Автоматически преобразуется в JSON
     )
     
-    session.add(movie)
-    session.commit()
-    session.refresh(movie)
+    db_session.add(movie)
+    db_session.commit()
+    db_session.refresh(movie)
     
     return movie
 
-@pytest.fixture
-def mock_transaction(session, mock_user):
-    """Создает тестовую транзакцию"""
+
+@pytest.fixture(name="mock_transaction")
+def mock_transaction_fixture(db_session, mock_user):
+    """Создает тестовую транзакцию в БД"""
     transaction = TestTransaction(
         user_id=mock_user.id,
         wallet_id=mock_user.wallet.id,
-        amount=50.0,
+        amount=100.0,
         type="DEPOSIT",
-        description="Test deposit"
+        description="Test deposit transaction"
     )
     
-    session.add(transaction)
-    session.commit()
-    session.refresh(transaction)
-    
-    # Добавляем атрибут transactions для совместимости с тестами
-    if not hasattr(mock_user.wallet, 'transactions'):
-        mock_user.wallet.transactions = []
-    mock_user.wallet.transactions.append(transaction)
+    db_session.add(transaction)
+    db_session.commit()
+    db_session.refresh(transaction)
     
     return transaction
 
-@pytest.fixture
-def mock_prediction(session, mock_user, mock_movie):
-    """Создает тестовое предсказание"""
-    import json
-    
+
+@pytest.fixture(name="mock_prediction")
+def mock_prediction_fixture(db_session, mock_user):
+    """Создает тестовое предсказание в БД"""
     prediction = TestPrediction(
         user_id=mock_user.id,
         input_text="I want to watch an action movie",
-        embedding=json.dumps([0.1] * 384),  # Сохраняем как JSON строку
-        cost=1.0
+        embedding=[0.1, 0.2, 0.3, 0.4] * 96,  # Автоматически преобразуется в JSON
+        cost=5.0
     )
     
-    session.add(prediction)
-    session.commit()
-    session.refresh(prediction)
-    
-    # Добавляем атрибут predictions для совместимости с тестами
-    if not hasattr(mock_user, 'predictions'):
-        mock_user.predictions = []
-    mock_user.predictions.append(prediction)
+    db_session.add(prediction)
+    db_session.commit()
+    db_session.refresh(prediction)
     
     return prediction
