@@ -37,6 +37,7 @@ class User(BaseModel, table=True):
     @field_validator("email")
     @classmethod
     def validate_email(cls, email: str) -> str:
+        """Проверяет формат email адреса"""
         if not re.match(r"^[\w\.-]+@[\w\.-]+\.\w+$", email):
             raise ValueError("Неверный формат email")
         return email

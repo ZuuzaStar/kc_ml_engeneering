@@ -9,15 +9,15 @@ templates = Jinja2Templates(directory="templates")
 
 @web_ui.get("/web", response_class=HTMLResponse)
 async def web_index(request: Request):
-    """Main WebUI page."""
+    """Главная страница веб-интерфейса"""
     return templates.TemplateResponse("index.html", {"request": request})
 
 @web_ui.get("/web/prediction-history", response_class=HTMLResponse)
 async def web_prediction_history(request: Request):
-    """Prediction history page."""
+    """Страница истории предсказаний"""
     return templates.TemplateResponse("prediction_history.html", {"request": request})
 
 @web_ui.get("/web/transaction-history", response_class=HTMLResponse)
 async def web_transaction_history(request: Request):
-    """Transaction history page."""
+    """Страница истории транзакций"""
     return templates.TemplateResponse("transaction_history.html", {"request": request})

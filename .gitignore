@@ -27,3 +27,4 @@ models_txt/
 .vscode
 .main_venv
 .DS_store
+testing.db

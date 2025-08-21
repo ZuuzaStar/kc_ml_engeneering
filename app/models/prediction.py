@@ -46,6 +46,7 @@ class Prediction(BaseModel, table=True):
 
     @field_serializer("embedding")
     def serialize_embedding(self, embedding):  # type: ignore[no-redef]
+        """Сериализует поле embedding для JSON"""
         try:
             return embedding.tolist()  # numpy ndarray -> list
         except Exception:

@@ -28,14 +28,14 @@ async def get_prediction_history(
     session=Depends(get_session)
 ) -> List[PredictionOut]:
     """
-    Get prediction history for authenticated user.
+    Получает историю предсказаний для аутентифицированного пользователя.
 
     Args:
-        user: Current authenticated user
-        session: Database session
+        user: Текущий аутентифицированный пользователь
+        session: Сессия базы данных
 
     Returns:
-        List[PredictionOut]: List of user predictions
+        List[PredictionOut]: Список предсказаний пользователя
     """
     try:
         return user.predictions
@@ -57,16 +57,16 @@ async def new_prediction(
     session=Depends(get_session)
 ) -> List[MovieOut]:
     """
-    Get movie recommendations for authenticated user.
+    Получает рекомендации фильмов для аутентифицированного пользователя.
 
     Args:
-        message: User request text
-        top: Number of recommendations to return
-        user: Current authenticated user
-        session: Database session
+        message: Текст запроса пользователя
+        top: Количество рекомендаций для возврата
+        user: Текущий аутентифицированный пользователь
+        session: Сессия базы данных
 
     Returns:
-        List[MovieOut]: List of recommended movies
+        List[MovieOut]: Список рекомендуемых фильмов
     """
     if top <= 0:
         raise HTTPException(status_code=400, detail="Invalid 'top' value")
