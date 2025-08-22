@@ -62,6 +62,11 @@ function showAuthStatus(email) {
   
   var at = document.getElementById('auth_title');
   if (at) at.textContent = 'Profile';
+  
+  // Очищаем сообщения об ошибках при успешной авторизации
+  setText('pred_error', '');
+  setText('balance_error', '');
+  setText('auth_msg', '');
 }
 
 function showAuthInputs() {
@@ -73,6 +78,20 @@ function showAuthInputs() {
   }
   var at = document.getElementById('auth_title');
   if (at) at.textContent = 'Authorisation';
+  
+  // Очищаем все сообщения и поля при разлогине
+  setText('pred_error', '');
+  setText('balance_error', '');
+  setText('auth_msg', '');
+  setHTML('pred_list', '');
+  setText('balance', '—');
+  
+  // Очищаем поля ввода
+  var prompt = document.getElementById('prompt');
+  if (prompt) prompt.value = '';
+  
+  var topup = document.getElementById('topup');
+  if (topup) topup.value = '';
 }
 
 // Auth functions
@@ -92,6 +111,10 @@ async function signup() {
   if (r.ok) {
     showAuthStatus(e);
     getBalance();
+  } else {
+    // Очищаем другие сообщения при неудачной попытке
+    setText('pred_error', '');
+    setText('balance_error', '');
   }
 }
 
@@ -111,6 +134,10 @@ async function signin() {
   if (r.ok) {
     showAuthStatus(e);
     getBalance();
+  } else {
+    // Очищаем другие сообщения при неудачной попытке
+    setText('pred_error', '');
+    setText('balance_error', '');
   }
 }
 
@@ -123,6 +150,8 @@ async function getBalance() {
   try {
     const d = await r.json();
     setText('balance', (d['Current balance'] ?? '—'));
+    // Очищаем сообщения об ошибках при успешном получении баланса
+    setText('balance_error', '');
   } catch (e) {
     setText('balance_error', 'Error parsing response');
   }
@@ -141,6 +170,10 @@ async function topUp() {
   });
   
   if (!r.ok) return setText('balance_error', 'Top up failed');
+  
+  // Очищаем поле ввода после успешного пополнения
+  document.getElementById('topup').value = '';
+  setText('balance_error', ''); // Очищаем сообщение об ошибке
   getBalance();
 }
 
@@ -168,6 +201,7 @@ async function newPrediction() {
   if (!msg) return setText('pred_error', 'Enter your request');
   
   setText('pred_error', 'Processing...');
+  document.getElementById('pred_error').className = 'info'; // Меняем класс на info для "Processing..."
   
   try {
     const r = await fetch(`/api/events/prediction/new?message=${encodeURIComponent(msg)}&top=10`, {
@@ -176,11 +210,49 @@ async function newPrediction() {
     });
     
     if (!r.ok) {
-      const err = await r.text();
+      let err = '';
+      try {
+        const errData = await r.json();
+        // Если ошибка в формате JSON, извлекаем сообщение
+        err = errData.detail || errData.message || JSON.stringify(errData);
+      } catch {
+        // Если не JSON, читаем как текст
+        err = await r.text();
+      }
+      
       if (r.status === 401) {
         openAuthModal('Session expired. Please sign in again');
         return;
       }
+      
+      if (r.status === 402) {
+        // Ошибка недостатка средств - показываем понятное сообщение
+        let insufficientFundsMsg = 'Insufficient funds';
+        try {
+          // Пытаемся распарсить JSON для извлечения деталей
+          const errData = JSON.parse(err);
+          if (errData.detail) {
+            // Извлекаем информацию о балансе и требуемой сумме
+            const detail = errData.detail;
+            if (detail.includes('Баланс:') && detail.includes('требуется:')) {
+              // Показываем понятное сообщение на русском
+              insufficientFundsMsg = 'Недостаточно средств для предсказания';
+            } else {
+              insufficientFundsMsg = detail;
+            }
+          }
+        } catch {
+          // Если не удалось распарсить JSON, используем исходный текст
+          insufficientFundsMsg = err;
+        }
+        
+        setText('pred_error', insufficientFundsMsg);
+        document.getElementById('pred_error').className = 'error';
+        // Обновляем баланс, чтобы показать актуальное состояние
+        getBalance();
+        return;
+      }
+      
       document.getElementById('pred_error').className = 'error';
       return setText('pred_error', `Error: ${err}`);
     }
@@ -194,6 +266,12 @@ async function newPrediction() {
     setHTML('pred_list', renderMovies(data));
     setText('pred_error', 'Recommendations ready!');
     document.getElementById('pred_error').className = 'success';
+    
+    // Очищаем поле ввода промпта
+    document.getElementById('prompt').value = '';
+    
+    // Обновляем баланс после успешного предсказания
+    getBalance();
   } catch (e) {
     document.getElementById('pred_error').className = 'error';
     setText('pred_error', `Error: ${e.message}`);
@@ -210,6 +288,7 @@ function logout() {
   showAuthInputs();
   setText('balance', '—');
   setHTML('pred_list', '');
+  setText('pred_error', ''); // Очищаем сообщение о рекомендациях
   setText('auth_msg', 'Logged out');
   
   var phl = document.getElementById('prediction_history_link');
@@ -279,6 +358,10 @@ function openAuthModal(message) {
     showAuthStatus(e);
     getBalance();
     document.body.removeChild(modal);
+    
+    // Очищаем сообщения об ошибках после успешной авторизации
+    setText('pred_error', '');
+    setText('balance_error', '');
   };
 }
 
@@ -298,6 +381,13 @@ function init() {
     getBalance();
     var bc = document.getElementById('balance_card');
     if (bc) bc.classList.remove('hidden');
+  } else {
+    // Если пользователь не авторизован, очищаем все сообщения
+    setText('pred_error', '');
+    setText('balance_error', '');
+    setText('auth_msg', '');
+    setHTML('pred_list', '');
+    setText('balance', '—');
   }
 }
 

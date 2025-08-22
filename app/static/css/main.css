@@ -178,6 +178,12 @@ a:hover {
   min-height: 18px;
 }
 
+.info {
+  color: var(--accent);
+  font-size: 13px;
+  min-height: 18px;
+}
+
 .hidden {
   display: none;
 }
