@@ -26,14 +26,14 @@ user_route = APIRouter()
     description="Register a new user with email and password")
 async def signup(data: UserSignupRequest, session=Depends(get_session)) -> Dict[str, str]:
     """
-    User registration.
+    Регистрация пользователя.
 
     Args:
-        data: User registration data
-        session: Database session
+        data: Данные для регистрации пользователя
+        session: Сессия базы данных
 
     Returns:
-        dict: Success message
+        dict: Сообщение об успехе
     """
     try:
         # Validate password strength
@@ -69,14 +69,14 @@ async def signup(data: UserSignupRequest, session=Depends(get_session)) -> Dict[
 @user_route.post('/signin')
 async def signin(data: UserSigninRequest, session=Depends(get_session)) -> Dict[str, str]:
     """
-    User signin.
+    Вход пользователя в систему.
 
     Args:
-        data: User signin data
-        session: Database session
+        data: Данные для входа пользователя
+        session: Сессия базы данных
 
     Returns:
-        dict: Success message
+        dict: Сообщение об успехе
     """
     try:
         user = UserService.get_user_by_email(data.email, session)
@@ -100,14 +100,14 @@ async def signin(data: UserSigninRequest, session=Depends(get_session)) -> Dict[
 @user_route.get('/balance')
 async def get_balance(user: User = Depends(get_current_user), session=Depends(get_session)) -> Dict[str, float]:
     """
-    Get wallet balance.
+    Получает баланс кошелька пользователя.
 
     Args:
-        user: Current authenticated user
-        session: Database session
+        user: Текущий аутентифицированный пользователь
+        session: Сессия базы данных
 
     Returns:
-        float: User balance
+        float: Баланс пользователя
     """
     try:
         return {'Current balance': user.wallet.balance}
@@ -126,15 +126,15 @@ async def adjust_balance(
     session=Depends(get_session)
 ) -> Dict[str, str]:
     """
-    Adjust wallet balance with authentication.
+    Изменяет баланс кошелька с аутентификацией.
 
     Args:
-        data: Balance adjustment data
-        user: Current authenticated user
-        session: Database session
+        data: Данные для изменения баланса
+        user: Текущий аутентифицированный пользователь
+        session: Сессия базы данных
 
     Returns:
-        dict: Success message
+        dict: Сообщение об успехе
     """
     try:
         # Проверяем, что пользователь пытается изменить свой собственный баланс
@@ -164,14 +164,14 @@ async def get_transaction_history(
     session=Depends(get_session)
 ) -> List[Transaction]:
     """
-    Get transaction history for authenticated user.
+    Получает историю транзакций для аутентифицированного пользователя.
 
     Args:
-        user: Current authenticated user
-        session: Database session
+        user: Текущий аутентифицированный пользователь
+        session: Сессия базы данных
 
     Returns:
-        List[Transaction]: List of user transactions
+        List[Transaction]: Список транзакций пользователя
     """
     try:
         return user.wallet.transactions

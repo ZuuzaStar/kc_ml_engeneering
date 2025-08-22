@@ -14,7 +14,7 @@ from database.database import init_db
 from database.config import get_settings
 
 def create_application() -> FastAPI:
-    """Create and configure FastAPI application."""
+    """Создает и настраивает FastAPI приложение"""
     app = FastAPI(
         title="Movie Recommendation Service",
         description="ML-powered movie recommendation service with user management and balance system",
@@ -46,7 +46,7 @@ def create_application() -> FastAPI:
     # Security middleware for logging
     @app.middleware("http")
     async def security_logging_middleware(request: Request, call_next):
-        """Log access to protected endpoints and authentication attempts."""
+        """Логирует доступ к защищенным endpoint'ам и попытки аутентификации"""
         # Log the request
         logger.info(f"Request: {request.method} {request.url.path}")
         
@@ -60,7 +60,7 @@ def create_application() -> FastAPI:
     # Security headers middleware
     @app.middleware("http")
     async def add_security_headers(request: Request, call_next):
-        """Add security headers to responses."""
+        """Добавляет заголовки безопасности к ответам"""
         response = await call_next(request)
         
         # Add security headers
@@ -74,7 +74,7 @@ def create_application() -> FastAPI:
     # Attack prevention middleware
     @app.middleware("http")
     async def attack_prevention_middleware(request: Request, call_next):
-        """Prevent common attack patterns."""
+        """Предотвращает распространенные паттерны атак"""
         # Block suspicious headers
         suspicious_headers = ["x-forwarded-for", "x-real-ip", "x-forwarded-proto"]
         for header in suspicious_headers:
@@ -97,6 +97,7 @@ def create_application() -> FastAPI:
     
     # Start Telegram bot in background thread
     def start_bot():
+        """Запускает Telegram бота в фоновом потоке"""
         try:
             if bot:  # Check if bot object was initialized (i.e., BOT_TOKEN was set)
                 logger.info("Starting Telegram bot...")

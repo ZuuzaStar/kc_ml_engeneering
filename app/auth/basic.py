@@ -19,13 +19,13 @@ WINDOW_SECONDS = 300  # 5 minutes
 
 def validate_password_strength(password: str) -> bool:
     """
-    Validate password strength.
+    Проверяет надежность пароля.
     
     Args:
-        password: Password to validate
+        password: Пароль для проверки
         
     Returns:
-        bool: True if password meets requirements
+        bool: True если пароль соответствует требованиям
     """
     if len(password) < 8:
         return False
@@ -42,13 +42,13 @@ def validate_password_strength(password: str) -> bool:
 
 def check_rate_limit(identifier: str) -> bool:
     """
-    Check if user has exceeded rate limit for login attempts.
+    Проверяет, превысил ли пользователь лимит попыток входа.
     
     Args:
-        identifier: User identifier (email or IP)
+        identifier: Идентификатор пользователя (email или IP)
         
     Returns:
-        bool: True if rate limit exceeded
+        bool: True если лимит превышен
     """
     now = time.time()
     attempts = login_attempts[identifier]
@@ -61,11 +61,11 @@ def check_rate_limit(identifier: str) -> bool:
 
 def record_login_attempt(identifier: str, success: bool):
     """
-    Record a login attempt for rate limiting.
+    Записывает попытку входа для ограничения частоты.
     
     Args:
-        identifier: User identifier (email or IP)
-        success: Whether login was successful
+        identifier: Идентификатор пользователя (email или IP)
+        success: Успешность входа
     """
     if not success:
         login_attempts[identifier].append(time.time())
@@ -79,17 +79,17 @@ def get_current_user(
     session: Session = Depends(get_session),
 ):
     """
-    Get current authenticated user with enhanced security.
+    Получает текущего аутентифицированного пользователя с усиленной безопасностью.
     
     Args:
-        creds: HTTP Basic credentials
-        session: Database session
+        creds: HTTP Basic учетные данные
+        session: Сессия базы данных
         
     Returns:
-        User: Authenticated user object
+        User: Объект аутентифицированного пользователя
         
     Raises:
-        HTTPException: If authentication fails or rate limit exceeded
+        HTTPException: Если аутентификация не удалась или превышен лимит попыток
     """
     # Check rate limiting
     if check_rate_limit(creds.username):

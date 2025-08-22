@@ -3,6 +3,7 @@ from functools import lru_cache
 from typing import Optional
 
 class Settings(BaseSettings):
+    """Настройки приложения (база данных, RabbitMQ, приложение)"""
     # Database settings
     POSTGRES_HOST: Optional[str] = None
     POSTGRES_PORT: Optional[int] = None
@@ -25,10 +26,12 @@ class Settings(BaseSettings):
     
     @property
     def DATABASE_URL_asyncpg(self):
+        """Возвращает URL базы данных для asyncpg драйвера"""
         return f'postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}'
     
     @property
     def DATABASE_URL_psycopg(self):
+        """Возвращает URL базы данных для psycopg2 драйвера"""
         return f'postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}'
     
     model_config = SettingsConfigDict(
@@ -38,7 +41,7 @@ class Settings(BaseSettings):
     )
     
     def validate(self) -> None:
-        """Validate critical configuration settings"""
+        """Проверяет критически важные настройки конфигурации"""
         if not all([self.POSTGRES_HOST, self.POSTGRES_USER, self.POSTGRES_PASSWORD, self.POSTGRES_DB]):
             raise ValueError("Missing required database configuration")
         if not all([self.RABBITMQ_USER, self.RABBITMQ_PASSWORD, self.RABBITMQ_HOST, self.RABBITMQ_PORT]):
@@ -46,6 +49,7 @@ class Settings(BaseSettings):
 
 @lru_cache()
 def get_settings() -> Settings:
+    """Получает настройки приложения с кэшированием"""
     settings = Settings()
     settings.validate()
     return settings

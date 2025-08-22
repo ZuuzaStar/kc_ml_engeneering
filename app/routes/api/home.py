@@ -11,10 +11,10 @@ home_route = APIRouter()
 )
 async def index() -> str:
     """
-    Root endpoint returning welcome message.
+    Главный endpoint, возвращающий приветственное сообщение.
 
     Returns:
-        Dict[str, str]: Welcome message
+        Dict[str, str]: Приветственное сообщение
     """
     try:
         return {"message": "Welcome to Movie Recommender API"}
@@ -30,13 +30,13 @@ async def index() -> str:
 )
 async def health_check() -> Dict[str, str]:
     """
-    Health check endpoint for monitoring.
+    Endpoint проверки состояния здоровья сервиса для мониторинга.
 
     Returns:
-        Dict[str, str]: Health status message
+        Dict[str, str]: Сообщение о состоянии здоровья
     
     Raises:
-        HTTPException: If service is unhealthy
+        HTTPException: Если сервис нездоров
     """
     try:
         # Add actual health checks here

@@ -4,10 +4,10 @@ from .config import get_settings
 
 def get_database_engine():
     """
-    Create and configure the SQLAlchemy engine.
+    Создает и настраивает SQLAlchemy engine.
     
     Returns:
-        Engine: Configured SQLAlchemy engine
+        Engine: Настроенный SQLAlchemy engine
     """
     settings = get_settings()
     
@@ -24,18 +24,19 @@ def get_database_engine():
 engine = get_database_engine()
 
 def get_session():
+    """Получает сессию базы данных"""
     with Session(engine) as session:
         yield session
         
 def init_db(drop_all: bool = False) -> None:
     """
-    Initialize database schema.
+    Инициализирует схему базы данных.
     
     Args:
-        drop_all: If True, drops all tables before creation
+        drop_all: Если True, удаляет все таблицы перед созданием
     
     Raises:
-        Exception: Any database-related exception
+        Exception: Любое исключение, связанное с базой данных
     """
     try:
         engine = get_database_engine()

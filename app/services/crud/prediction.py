@@ -69,6 +69,7 @@ def get_prediction_by_id(
     id: int,
     session: Session
 ) -> bool:
+    """Получает предсказание по ID"""
     try:
         prediction = session.get(Prediction, id)
         return prediction

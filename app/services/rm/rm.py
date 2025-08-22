@@ -4,8 +4,10 @@ import json
 
 
 class MLServiceRpcClient(object):
+    """RPC клиент для взаимодействия с ML сервисом через RabbitMQ"""
     
     def __init__(self, settings) -> None:
+        """Инициализирует RPC клиент с настройками RabbitMQ"""
         self.connection_params = pika.ConnectionParameters(
             host=settings.RABBITMQ_HOST,
             port=settings.RABBITMQ_PORT,
@@ -29,6 +31,7 @@ class MLServiceRpcClient(object):
             auto_ack=True
         )
     def on_response(self, ch, method, props, body):
+        """Обрабатывает ответ от ML сервиса"""
         if self.corr_id == props.correlation_id:
             try:
                 self.response = json.loads(body)
@@ -36,6 +39,7 @@ class MLServiceRpcClient(object):
                 self.response = None
 
     def call(self, message: str) -> dict:
+        """Выполняет RPC вызов к ML сервису"""
         self.response = None
         self.corr_id = str(uuid.uuid4())
         self.channel.basic_publish(
