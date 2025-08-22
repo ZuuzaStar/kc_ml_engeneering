@@ -57,7 +57,6 @@ class TestMovieRecommendations:
         """Тест эмуляции поля Vector в модели фильма"""
         # Проверяем что embedding сохраняется как JSON строка
         embedding = json.loads(mock_movie.embedding)
-        assert mock_movie.embedding is not None
         assert len(embedding) == 384
         assert all(isinstance(x, float) for x in embedding)
         
@@ -71,7 +70,6 @@ class TestMovieRecommendations:
         """Тест эмуляции поля Vector в модели предсказания"""
         # Проверяем что embedding сохраняется как JSON строка
         embedding = json.loads(mock_prediction.embedding)
-        assert mock_prediction.embedding is not None
         assert len(embedding) == 384
         assert all(isinstance(x, float) for x in embedding)
         
@@ -94,7 +92,6 @@ class TestMovieRecommendations:
         # Тестируем предсказание
         pred_embedding = json.loads(mock_prediction.embedding)
         assert len(pred_embedding) == 384
-        assert len(pred_embedding) == 384
     
     def test_data_consistency(self, mock_movie, mock_prediction):
         """Тест консистентности данных между ARRAY и Vector полями"""
@@ -102,8 +99,6 @@ class TestMovieRecommendations:
         assert mock_movie.title is not None
         assert mock_movie.description is not None
         assert mock_movie.year > 0
-        assert mock_movie.genres is not None
-        assert mock_movie.embedding is not None
         
         # Проверяем что JSON валиден
         try:
@@ -133,7 +128,6 @@ class TestMovieRecommendations:
         assert mock_movie_data["title"] == "Test Movie"
         assert mock_movie_data["year"] == 2023
         assert mock_movie_data["genres"] == ["action", "drama"]
-        assert len(mock_movie_data["embedding"]) == 384
         assert len(mock_movie_data["embedding"]) == 384
     
     def test_movie_data_to_model_mapping(self, mock_movie_data, mock_movie):

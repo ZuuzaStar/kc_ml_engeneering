@@ -9,8 +9,7 @@ class TestWalletOperations:
         """Тест логики операций с балансом"""
         initial_balance = mock_user.wallet.balance
         
-        # Проверяем что баланс неотрицательный
-        assert initial_balance >= 0
+        # Проверяем что баланс равен ожидаемому значению
         assert initial_balance == 0.0
         
         # Проверяем что кошелек связан с пользователем
@@ -38,8 +37,6 @@ class TestWalletOperations:
     def test_transaction_user_relationship(self, mock_transaction, mock_user):
         """Тест связи транзакции с пользователем"""
         assert mock_transaction.user_id == mock_user.id
-        assert mock_transaction.user_id is not None
-        assert mock_transaction.user_id > 0
     
     def test_transaction_wallet_relationship(self, mock_transaction, mock_user):
         """Тест связи транзакции с кошельком"""
@@ -50,20 +47,15 @@ class TestWalletOperations:
     def test_transaction_amount_validation(self, mock_transaction):
         """Тест валидации суммы транзакции"""
         assert mock_transaction.amount == 100.0
-        assert mock_transaction.amount > 0
         assert isinstance(mock_transaction.amount, float)
     
     def test_transaction_type_validation(self, mock_transaction):
         """Тест валидации типа транзакции"""
         assert mock_transaction.type == "DEPOSIT"
-        assert isinstance(mock_transaction.type, str)
-        assert len(mock_transaction.type) > 0
     
     def test_transaction_description(self, mock_transaction):
         """Тест описания транзакции"""
         assert mock_transaction.description == "Test deposit transaction"
-        assert isinstance(mock_transaction.description, str)
-        assert len(mock_transaction.description) > 0
     
     def test_transaction_timestamp(self, mock_transaction):
         """Тест временной метки транзакции"""

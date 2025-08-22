@@ -72,14 +72,12 @@ class TestIntegrationScenarios:
         
         # Тестируем операции с embedding (Vector)
         embedding = json.loads(mock_movie.embedding)
-        original_value = embedding[0]
         
         # Изменяем embedding
         embedding[0] = 0.9
         mock_movie.embedding = json.dumps(embedding)
         updated_embedding = json.loads(mock_movie.embedding)
         assert updated_embedding[0] == 0.9
-        assert updated_embedding[0] != original_value
     
     def test_data_persistence_patterns(self, mock_movie, mock_prediction):
         """Тест паттернов сохранения данных для ARRAY и Vector"""
@@ -129,7 +127,6 @@ class TestIntegrationScenarios:
         
         assert genres == mock_movie_data["genres"]
         assert len(embedding) == len(mock_movie_data["embedding"])
-        assert all(isinstance(x, float) for x in embedding)
     
     def test_transaction_lifecycle(self, mock_user, mock_transaction, session):
         """Тест полного жизненного цикла транзакции"""

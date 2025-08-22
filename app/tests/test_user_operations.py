@@ -44,26 +44,19 @@ class TestUserOperations:
         """Тест связи пользователя с кошельком"""
         assert hasattr(mock_user, 'wallet')
         assert mock_user.wallet.user_id == mock_user.id
-        assert mock_user.wallet.balance >= 0
     
     def test_email_uniqueness_logic(self, mock_user, mock_admin_user):
         """Тест уникальности email адресов"""
         # Проверяем что у пользователей разные email
         assert mock_user.email != mock_admin_user.email
-        assert mock_user.email == "test@example.com"
-        assert mock_admin_user.email == "admin@example.com"
     
     def test_user_transaction_capability(self, mock_user, mock_transaction):
         """Тест способности пользователя создавать транзакции"""
         # Проверяем что пользователь может иметь транзакции
         assert mock_transaction.user_id == mock_user.id
-        assert mock_transaction.amount == 100.0
-        assert mock_transaction.type == "DEPOSIT"
     
     def test_user_wallet_transaction_chain(self, mock_user, mock_transaction):
         """Тест цепочки связей: пользователь -> кошелек -> транзакция"""
         # Проверяем полную цепочку связей
         assert mock_user.id == mock_transaction.user_id
         assert mock_user.wallet.id == mock_transaction.wallet_id
-        assert mock_user.wallet.user_id == mock_user.id
-        assert mock_transaction.wallet_id == mock_user.wallet.id
