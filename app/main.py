@@ -74,5 +74,35 @@ if __name__ == "__main__":
             model = SentenceTransformer('sentence-transformers/' + ModelTypes.MULTILINGUAL.value)
             update_movie_database(model, session)
             logger.info('База данных с фильмами успешно обновлена')
+            
+            # Для максимальной точности не создаем ivfflat индекс
+            logger.info("Пропускаем создание ivfflat индекса для максимальной точности поиска")
+            
+            # # Создаем векторный индекс после загрузки фильмов
+            # logger.info("Создаем векторный индекс для быстрого поиска...")
+            # try:
+            #     with engine.connect() as connection:
+            #         connection.execute(text("CREATE INDEX IF NOT EXISTS idx_movie_embedding_ivfflat ON movie USING ivfflat (embedding vector_cosine_ops) WITH (lists = 50)"))
+            #         connection.commit()
+            #     logger.info("Векторный индекс успешно создан")
+            # except Exception as e:
+            #     logger.warning(f"Не удалось создать векторный индекс: {e}")
         else:
             logger.info('База данных уже содержит фильмы')
+            
+            # Для максимальной точности не создаем ivfflat индекс
+            logger.info("Пропускаем создание ivfflat индекса для максимальной точности поиска")
+            
+            # # Проверяем существование индекса
+            # try:
+            #     with engine.connect() as connection:
+            #         result = connection.execute(text("SELECT indexname FROM pg_indexes WHERE tablename = 'movie' AND indexname = 'idx_movie_embedding_ivfflat'"))
+            #         if not result.fetchone():
+            #             logger.info("Создаем векторный индекс для существующих фильмов...")
+            #             connection.execute(text("CREATE INDEX IF NOT EXISTS idx_movie_embedding_ivfflat ON movie USING ivfflat (embedding vector_cosine_ops) WITH (lists = 50)"))
+            #             connection.commit()
+            #             logger.info("Векторный индекс успешно создан")
+            #         else:
+            #             logger.info("Векторный индекс уже существует")
+            # except Exception as e:
+            #     logger.warning(f"Не удалось создать векторный индекс: {e}")

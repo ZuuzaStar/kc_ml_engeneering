@@ -80,11 +80,16 @@ async def new_prediction(
     try:
         ml_service_rpc = MLServiceRpcClient(get_settings())
         response = ml_service_rpc.call(message)
+        
         movies = session.exec(
             select(Movie)
             .order_by(Movie.embedding.cast(Vector).op("<=>")(response["request_embedding"]))
             .limit(top)
         ).all()
+        
+        # Логируем результат
+        logger.info(f"Found {len(movies)} movies out of requested {top}")
+        
         PredictionService.create_prediction(user, message, response["request_embedding"], cost, movies, session)
         return movies
     except Exception as e:

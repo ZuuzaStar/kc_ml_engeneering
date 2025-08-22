@@ -268,6 +268,23 @@ def update_movie_database(
         
         logger.info(f"База данных обновлена: всего добавлено {total_added_count}, пропущено {total_skipped_count} фильмов")
         
+        # Создаем векторный индекс после загрузки фильмов
+        if total_added_count > 0:
+            logger.info("Пропускаем создание ivfflat индекса для максимальной точности поиска")
+            
+            # # Создаем векторный индекс для быстрого поиска...
+            # logger.info("Создаем векторный индекс для быстрого поиска...")
+            # try:
+            #     from sqlalchemy import text
+            #     from database.database import engine
+            #     
+            #     with engine.connect() as connection:
+            #         connection.execute(text("CREATE INDEX IF NOT EXISTS idx_movie_embedding_ivfflat ON movie USING ivfflat (embedding vector_cosine_ops) WITH (lists = 50)"))
+            #         connection.commit()
+            #     logger.info("Векторный индекс успешно создан")
+            # except Exception as e:
+            #     logger.warning(f"Не удалось создать векторный индекс: {e}")
+        
     except Exception as e:
         logger.error(f"Ошибка при обновлении базы данных фильмов: {e}")
         raise
