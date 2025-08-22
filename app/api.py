@@ -117,7 +117,7 @@ app = create_application()
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database on startup."""
+    """Инициализирует базу данных при запуске приложения."""
     try:
         init_db()
         logger.info("Database initialized successfully")
