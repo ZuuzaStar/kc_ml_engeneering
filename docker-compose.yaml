@@ -5,7 +5,7 @@ services:
     build: ./app
     container_name: recomender-app
     env_file:
-      - ./app/.env
+      - ./.env
     volumes:
       - ./app:/app
     ports:
@@ -29,7 +29,7 @@ services:
     container_name: recomender-ml-worker
     restart: unless-stopped
     env_file:
-      - ./app/.env
+      - ./.env
     volumes:
       - ./ml_worker:/app
     depends_on:
@@ -55,7 +55,7 @@ services:
     hostname: rabbitmq
     restart: unless-stopped
     env_file:
-      - ./app/.env
+      - ./.env
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
@@ -83,7 +83,7 @@ services:
     networks:
       - app-network
     env_file:
-      - ./app/.env
+      - ./.env
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
