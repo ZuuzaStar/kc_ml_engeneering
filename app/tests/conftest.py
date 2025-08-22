@@ -12,7 +12,7 @@ from datetime import datetime
 import bcrypt
 
 # Импортируем тестовые модели из простой фабрики
-from simple_factory import TestUser, TestWallet, TestTransaction, TestMovie, TestPrediction
+from tests.simple_factory import TestUser, TestWallet, TestTransaction, TestMovie, TestPrediction
 
 
 def create_test_app():
