@@ -2,23 +2,13 @@ import os
 import telebot
 from telebot import types
 import logging
-from services.crud import user as UserService
-from services.crud import prediction as PredictionService
-from database.database import get_session
-from models.user import User
-from sqlmodel import Session
-from services.rm.rm import MLServiceRpcClient
-from database.config import get_settings
-from pgvector.sqlalchemy import Vector
-from sqlmodel import select
-from models.movie import Movie
-import hashlib
-import time
+import httpx
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 if not BOT_TOKEN:
     logger.warning("BOT_TOKEN не установлен. Telegram бот будет отключен.")
@@ -35,8 +25,59 @@ AUTH_STATES = {
     'waiting_for_description': 'waiting_for_description'
 }
 
-# Кэш авторизованных пользователей (telegram_id -> user_id)
+# Кэш авторизованных пользователей (telegram_id -> email)
 authorized_users = {}
+
+# Кэш учетных данных для BasicAuth (telegram_id -> {email, password})
+user_credentials = {}
+
+# ---------- HTTP API helpers ----------
+def _get_auth(telegram_id):
+    creds = user_credentials.get(telegram_id)
+    if not creds:
+        return None
+    return httpx.BasicAuth(creds["email"], creds["password"])  # type: ignore[arg-type]
+
+def api_signup(email: str, password: str) -> dict:
+    url = f"{API_BASE_URL}/api/users/signup"
+    with httpx.Client(timeout=10.0) as client:
+        resp = client.post(url, json={"email": email, "password": password, "is_admin": False})
+        return {"ok": resp.status_code in (200, 201), "status": resp.status_code, "data": resp.json() if resp.content else {}}
+
+def api_signin(email: str, password: str) -> dict:
+    url = f"{API_BASE_URL}/api/users/signin"
+    with httpx.Client(timeout=10.0) as client:
+        resp = client.post(url, json={"email": email, "password": password})
+        return {"ok": resp.status_code == 200, "status": resp.status_code, "data": resp.json() if resp.content else {}}
+
+def api_get_balance(telegram_id: int) -> dict:
+    url = f"{API_BASE_URL}/api/users/balance"
+    auth = _get_auth(telegram_id)
+    if not auth:
+        return {"ok": False, "status": 401, "data": {}}
+    with httpx.Client(timeout=10.0, auth=auth) as client:
+        resp = client.get(url)
+        return {"ok": resp.status_code == 200, "status": resp.status_code, "data": resp.json() if resp.content else {}}
+
+def api_get_prediction_history(telegram_id: int) -> dict:
+    url = f"{API_BASE_URL}/api/events/prediction/history"
+    auth = _get_auth(telegram_id)
+    if not auth:
+        return {"ok": False, "status": 401, "data": {}}
+    with httpx.Client(timeout=20.0, auth=auth) as client:
+        resp = client.get(url)
+        return {"ok": resp.status_code == 200, "status": resp.status_code, "data": resp.json() if resp.content else []}
+
+def api_create_prediction(telegram_id: int, message: str, top: int = 10) -> dict:
+    url = f"{API_BASE_URL}/api/events/prediction/new"
+    auth = _get_auth(telegram_id)
+    if not auth:
+        return {"ok": False, "status": 401, "data": {}}
+    # FastAPI expects query params for primitive args unless Body is specified
+    params = {"message": message, "top": top}
+    with httpx.Client(timeout=60.0, auth=auth) as client:
+        resp = client.post(url, params=params)
+        return {"ok": resp.status_code == 200, "status": resp.status_code, "data": resp.json() if resp.content else []}
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -183,67 +224,51 @@ def handle_password_input(message):
         return
     
     try:
-        with next(get_session()) as session:
-            if auth_type == "signup":
-                # Регистрация
-                result = handle_signup(session, email, password, user_id)
-            else:
-                # Вход
-                result = handle_signin(session, email, password, user_id)
-            
-            if result['success']:
-                # Очищаем состояния
-                cleanup_auth_states(chat_id)
-                show_main_menu(message)
-            else:
-                bot.reply_to(message, f"❌ {result['message']}")
-                
+        if auth_type == "signup":
+            result = handle_signup(email, password, user_id)
+        else:
+            result = handle_signin(email, password, user_id)
+
+        if result['success']:
+            cleanup_auth_states(chat_id)
+            show_main_menu(message)
+        else:
+            bot.reply_to(message, f"❌ {result['message']}")
     except Exception as e:
         logger.error(f"Ошибка авторизации: {str(e)}")
         bot.reply_to(message, "❌ Произошла ошибка. Попробуйте позже.")
         cleanup_auth_states(chat_id)
 
-def handle_signup(session, email, password, telegram_id):
-    """Обработка регистрации"""
+def handle_signup(email, password, telegram_id):
+    """Обработка регистрации через HTTP API"""
     try:
-        # Проверяем, существует ли пользователь
-        existing_user = session.exec(select(User).where(User.email == email)).first()
-        if existing_user:
-            return {'success': False, 'message': 'Пользователь с таким email уже существует.'}
-        
-        # Создаем пользователя
-        user = UserService.create_user(session, email, password, is_admin=False)
-        if user:
-            # Сохраняем связь telegram_id -> user_id
-            authorized_users[telegram_id] = user.id
-            logger.info(f"Пользователь {telegram_id} добавлен в authorized_users: {user.id}")
-            logger.info(f"Текущий authorized_users: {authorized_users}")
-            return {'success': True, 'message': 'Регистрация успешна!'}
-        else:
-            return {'success': False, 'message': 'Ошибка создания пользователя.'}
-            
+        resp = api_signup(email, password)
+        if not resp["ok"]:
+            # Конфликт 409 или другая ошибка
+            detail = resp.get("data", {}).get("detail") if isinstance(resp.get("data"), dict) else None
+            return {'success': False, 'message': detail or 'Ошибка регистрации.'}
+
+        # Сохраняем учетные данные для последующих запросов
+        user_credentials[telegram_id] = {"email": email, "password": password}
+        authorized_users[telegram_id] = email
+        logger.info(f"Пользователь {telegram_id} авторизован как {email}")
+        return {'success': True, 'message': 'Регистрация успешна!'}
     except Exception as e:
         logger.error(f"Ошибка регистрации: {str(e)}")
         return {'success': False, 'message': 'Ошибка регистрации.'}
 
-def handle_signin(session, email, password, telegram_id):
-    """Обработка входа"""
+def handle_signin(email, password, telegram_id):
+    """Обработка входа через HTTP API"""
     try:
-        # Ищем пользователя
-        user = session.exec(select(User).where(User.email == email)).first()
-        if not user:
-            return {'success': False, 'message': 'Пользователь не найден.'}
-        
-        # Проверяем пароль
-        if not UserService.verify_password(password, user.password_hash):
-            return {'success': False, 'message': 'Неверный пароль.'}
-        
-        # Сохраняем связь telegram_id -> user_id
-        authorized_users[telegram_id] = user.id
-        logger.info(f"Пользователь {telegram_id} добавлен в authorized_users: {user.id}")
-        logger.info(f"Текущий authorized_users: {authorized_users}")
+        resp = api_signin(email, password)
+        if not resp["ok"]:
+            detail = resp.get("data", {}).get("detail") if isinstance(resp.get("data"), dict) else None
+            return {'success': False, 'message': detail or 'Неверные учетные данные.'}
+
+        user_credentials[telegram_id] = {"email": email, "password": password}
+        authorized_users[telegram_id] = email
+        logger.info(f"Пользователь {telegram_id} авторизован как {email}")
         return {'success': True, 'message': 'Вход выполнен успешно!'}
-        
     except Exception as e:
         logger.error(f"Ошибка входа: {str(e)}")
         return {'success': False, 'message': 'Ошибка входа.'}
@@ -277,37 +302,38 @@ def show_main_menu(message):
         return
     
     try:
-        with next(get_session()) as session:
-            user = session.get(User, authorized_users[user_id])
-            if not user:
-                logger.error(f"Пользователь {user_id} не найден в БД, удаляем из authorized_users")
-                del authorized_users[user_id]
-                send_welcome(message)
-                return
-            
-            balance = user.wallet.balance
-            logger.info(f"Показываем главное меню для пользователя {user.email} с балансом {balance}")
-            
-            menu_text = (
-                f"🎬 **Главное меню**\n\n"
-                f"👤 Пользователь: {user.email}\n"
-                f"💳 Баланс: {balance} кредитов\n\n"
-                f"Выберите действие:"
-            )
-            
-            markup = types.InlineKeyboardMarkup(row_width=2)
-            markup.row(
-                types.InlineKeyboardButton("🎯 Получить рекомендации", callback_data="menu_predict"),
-                types.InlineKeyboardButton("📚 История", callback_data="menu_history")
-            )
-            markup.row(
-                types.InlineKeyboardButton("💳 Баланс", callback_data="menu_balance"),
-                types.InlineKeyboardButton("🔧 Настройки", callback_data="menu_settings")
-            )
-            markup.row(types.InlineKeyboardButton("🚪 Выйти", callback_data="menu_logout"))
-            
-            bot.send_message(chat_id, menu_text, reply_markup=markup, parse_mode='Markdown')
-            
+        email = authorized_users.get(user_id)
+        if not email or user_id not in user_credentials:
+            logger.warning(f"Пользователь {user_id} не авторизован, перенаправляем на /start")
+            send_welcome(message)
+            return
+
+        balance_resp = api_get_balance(user_id)
+        if not balance_resp["ok"]:
+            logger.error(f"Не удалось получить баланс: {balance_resp['status']}")
+            bot.reply_to(message, "❌ Ошибка загрузки меню.")
+            return
+        balance = balance_resp["data"].get("Current balance", 0)
+
+        menu_text = (
+            f"🎬 **Главное меню**\n\n"
+            f"👤 Пользователь: {email}\n"
+            f"💳 Баланс: {balance} кредитов\n\n"
+            f"Выберите действие:"
+        )
+
+        markup = types.InlineKeyboardMarkup(row_width=2)
+        markup.row(
+            types.InlineKeyboardButton("🎯 Получить рекомендации", callback_data="menu_predict"),
+            types.InlineKeyboardButton("📚 История", callback_data="menu_history")
+        )
+        markup.row(
+            types.InlineKeyboardButton("💳 Баланс", callback_data="menu_balance"),
+            types.InlineKeyboardButton("🔧 Настройки", callback_data="menu_settings")
+        )
+        markup.row(types.InlineKeyboardButton("🚪 Выйти", callback_data="menu_logout"))
+
+        bot.send_message(chat_id, menu_text, reply_markup=markup, parse_mode='Markdown')
     except Exception as e:
         logger.error(f"Ошибка показа главного меню: {str(e)}")
         bot.reply_to(message, "❌ Ошибка загрузки меню.")
@@ -362,9 +388,11 @@ def handle_logout(message):
     user_id = message.from_user.id
     chat_id = message.chat.id
     
-    # Удаляем из авторизованных
+    # Удаляем из авторизованных и забываем учетные данные
     if user_id in authorized_users:
         del authorized_users[user_id]
+    if user_id in user_credentials:
+        del user_credentials[user_id]
     
     # Очищаем состояния
     cleanup_auth_states(chat_id)
@@ -393,62 +421,48 @@ def handle_description(message):
         return
     
     try:
-        with next(get_session()) as session:
-            user = session.get(User, authorized_users[user_id])
-            if not user:
-                del authorized_users[user_id]
-                bot.reply_to(message, "❌ Пользователь не найден. Авторизуйтесь заново.")
+        if user_id not in authorized_users or user_id not in user_credentials:
+            bot.reply_to(message, "❌ Необходимо авторизоваться.")
+            return
+
+        bot.reply_to(message, "⏳ Обрабатываю ваш запрос...")
+
+        # Выполняем запрос к API для получения рекомендаций
+        pred_resp = api_create_prediction(user_id, input_text, top=10)
+        if not pred_resp["ok"]:
+            if pred_resp["status"] == 402:
+                # Недостаточно средств
+                balance_resp = api_get_balance(user_id)
+                balance = balance_resp["data"].get("Current balance", 0) if balance_resp["ok"] else "N/A"
+                bot.reply_to(message, f"❌ Недостаточно средств. Ваш баланс: {balance}. Пополните баланс через веб-интерфейс.")
                 return
-            
-            # Проверяем баланс
-            if user.wallet.balance < 10:
-                bot.reply_to(
-                    message, 
-                    f"❌ Недостаточно средств. Ваш баланс: {user.wallet.balance}. "
-                    f"Пополните баланс через веб-интерфейс."
-                )
-                return
-            
-            bot.reply_to(message, "⏳ Обрабатываю ваш запрос...")
-            
-            try:
-                # Получаем эмбеддинг через ML сервис
-                ml_service_rpc = MLServiceRpcClient(get_settings())
-                response = ml_service_rpc.call(input_text)
-                
-                # Ищем похожие фильмы
-                movies = session.exec(
-                    select(Movie)
-                    .order_by(Movie.embedding.cast(Vector).op("<=>")(response["request_embedding"]))
-                    .limit(10)  # Увеличиваем с 5 до 10
-                ).all()
-                
-                if not movies:
-                    bot.reply_to(message, "❌ К сожалению, не удалось найти подходящие фильмы.")
-                    return
-                
-                # Создаем предсказание
-                cost = 10.0
-                PredictionService.create_prediction(user, input_text, response["request_embedding"], cost, movies, session)
-                
-                # Формируем ответ - упрощенный формат
-                response_text = f"🎬 Найдено {len(movies)} фильмов по запросу: '{input_text}'\n\n"
-                for i, movie in enumerate(movies, 1):
-                    response_text += f"{i}. **{movie.title}** ({movie.year})\n"
-                    response_text += f"   Жанры: {', '.join(movie.genres[:3]) if movie.genres else 'Не указаны'}\n\n"
-                
-                response_text += f"💰 Стоимость: {cost} кредитов\n"
-                response_text += f"💳 Новый баланс: {user.wallet.balance - cost}"
-                
-                markup = types.InlineKeyboardMarkup()
-                markup.row(types.InlineKeyboardButton("🔙 Главное меню", callback_data="menu_back"))
-                
-                bot.reply_to(message, response_text, reply_markup=markup, parse_mode='Markdown')
-                
-            except Exception as e:
-                logger.error(f"Ошибка ML сервиса: {str(e)}")
-                bot.reply_to(message, "❌ Ошибка при обработке запроса. Попробуйте позже.")
-                
+            logger.error(f"Ошибка предсказания: {pred_resp['status']}")
+            bot.reply_to(message, "❌ Ошибка при обработке запроса. Попробуйте позже.")
+            return
+
+        movies = pred_resp["data"] or []
+        if not movies:
+            bot.reply_to(message, "❌ К сожалению, не удалось найти подходящие фильмы.")
+            return
+
+        # Получаем актуальный баланс после списания
+        balance_resp = api_get_balance(user_id)
+        new_balance = balance_resp["data"].get("Current balance", "N/A") if balance_resp["ok"] else "N/A"
+
+        response_text = f"🎬 Найдено {len(movies)} фильмов по запросу: '{input_text}'\n\n"
+        for i, movie in enumerate(movies, 1):
+            title = movie.get("title", "Без названия")
+            year = movie.get("year", "N/A")
+            genres = movie.get("genres") or []
+            response_text += f"{i}. **{title}** ({year})\n"
+            response_text += f"   Жанры: {', '.join(genres[:3]) if genres else 'Не указаны'}\n\n"
+
+        response_text += f"💳 Текущий баланс: {new_balance}"
+
+        markup = types.InlineKeyboardMarkup()
+        markup.row(types.InlineKeyboardButton("🔙 Главное меню", callback_data="menu_back"))
+
+        bot.reply_to(message, response_text, reply_markup=markup, parse_mode='Markdown')
     except Exception as e:
         logger.error(f"Ошибка обработки запроса: {str(e)}")
         bot.reply_to(message, "❌ Произошла ошибка при обработке вашего запроса.")
@@ -470,30 +484,36 @@ def show_history(message):
         return
     
     try:
-        with next(get_session()) as session:
-            user = session.get(User, authorized_users[user_id])
-            if not user:
-                del authorized_users[user_id]
-                bot.reply_to(message, "❌ Пользователь не найден. Авторизуйтесь заново.")
-                return
-            
-            predictions = user.predictions
-            if not predictions:
-                bot.reply_to(message, "📚 У вас пока нет истории рекомендаций.")
-                return
-            
-            response = "📚 Ваша история рекомендаций:\n\n"
-            for i, pred in enumerate(predictions[-5:], 1):  # Показываем последние 5
-                response += f"{i}. {pred.input_text[:50]}...\n"
-                response += f"   💰 Стоимость: {pred.cost} кредитов\n"
-                response += f"   📅 Дата: {pred.timestamp.strftime('%Y-%m-%d %H:%M') if pred.timestamp else 'N/A'}\n"
-                response += f"   🎬 Фильмов: {len(pred.movies) if pred.movies else 0}\n\n"
-            
-            markup = types.InlineKeyboardMarkup()
-            markup.row(types.InlineKeyboardButton("🔙 Главное меню", callback_data="menu_back"))
-            
-            bot.reply_to(message, response, reply_markup=markup)
-            
+        if user_id not in authorized_users or user_id not in user_credentials:
+            bot.reply_to(message, "❌ Необходимо авторизоваться.")
+            return
+
+        hist_resp = api_get_prediction_history(user_id)
+        if not hist_resp["ok"]:
+            logger.error(f"Ошибка получения истории: {hist_resp['status']}")
+            bot.reply_to(message, "❌ Произошла ошибка при получении истории.")
+            return
+
+        predictions = hist_resp["data"] or []
+        if not predictions:
+            bot.reply_to(message, "📚 У вас пока нет истории рекомендаций.")
+            return
+
+        response = "📚 Ваша история рекомендаций:\n\n"
+        for i, pred in enumerate(predictions[-5:], 1):
+            input_text = (pred.get("input_text") or "")[:50]
+            cost = pred.get("cost", "N/A")
+            timestamp = pred.get("timestamp", "")
+            movies = pred.get("movies") or []
+            response += f"{i}. {input_text}...\n"
+            response += f"   💰 Стоимость: {cost} кредитов\n"
+            response += f"   📅 Дата: {timestamp.replace('T', ' ')[:16] if isinstance(timestamp, str) else 'N/A'}\n"
+            response += f"   🎬 Фильмов: {len(movies)}\n\n"
+
+        markup = types.InlineKeyboardMarkup()
+        markup.row(types.InlineKeyboardButton("🔙 Главное меню", callback_data="menu_back"))
+
+        bot.reply_to(message, response, reply_markup=markup)
     except Exception as e:
         logger.error(f"Ошибка получения истории: {str(e)}")
         bot.reply_to(message, "❌ Произошла ошибка при получении истории.")
@@ -515,27 +535,29 @@ def show_balance_for_callback(message):
         return
     
     try:
-        with next(get_session()) as session:
-            user = session.get(User, authorized_users[user_id])
-            if not user:
-                del authorized_users[user_id]
-                bot.reply_to(message, "❌ Пользователь не найден. Авторизуйтесь заново.")
-                return
-            
-            balance = user.wallet.balance
-            response = f"💳 Ваш текущий баланс: {balance} кредитов\n\n"
-            
-            if balance < 10:
-                response += "⚠️ Недостаточно средств для получения рекомендаций.\n"
-                response += "Пополните баланс через веб-интерфейс: http://localhost/web"
-            else:
-                response += "✅ Достаточно средств для получения рекомендаций."
-            
-            markup = types.InlineKeyboardMarkup()
-            markup.row(types.InlineKeyboardButton("🔙 Главное меню", callback_data="menu_back"))
-            
-            bot.reply_to(message, response, reply_markup=markup)
-            
+        if user_id not in authorized_users or user_id not in user_credentials:
+            bot.reply_to(message, "❌ Необходимо авторизоваться.")
+            return
+
+        balance_resp = api_get_balance(user_id)
+        if not balance_resp["ok"]:
+            logger.error(f"Ошибка получения баланса: {balance_resp['status']}")
+            bot.reply_to(message, "❌ Произошла ошибка при получении баланса.")
+            return
+
+        balance = balance_resp["data"].get("Current balance", 0)
+        response = f"💳 Ваш текущий баланс: {balance} кредитов\n\n"
+
+        if balance < 10:
+            response += "⚠️ Недостаточно средств для получения рекомендаций.\n"
+            response += "Пополните баланс через веб-интерфейс: http://localhost/web"
+        else:
+            response += "✅ Достаточно средств для получения рекомендаций."
+
+        markup = types.InlineKeyboardMarkup()
+        markup.row(types.InlineKeyboardButton("🔙 Главное меню", callback_data="menu_back"))
+
+        bot.reply_to(message, response, reply_markup=markup)
     except Exception as e:
         logger.error(f"Ошибка получения баланса: {str(e)}")
         bot.reply_to(message, "❌ Произошла ошибка при получении баланса.")
@@ -558,27 +580,29 @@ def show_balance(message):
         return
     
     try:
-        with next(get_session()) as session:
-            user = session.get(User, authorized_users[user_id])
-            if not user:
-                del authorized_users[user_id]
-                bot.reply_to(message, "❌ Пользователь не найден. Авторизуйтесь заново.")
-                return
-            
-            balance = user.wallet.balance
-            response = f"💳 Ваш текущий баланс: {balance} кредитов\n\n"
-            
-            if balance < 10:
-                response += "⚠️ Недостаточно средств для получения рекомендаций.\n"
-                response += "Пополните баланс через веб-интерфейс: http://localhost/web"
-            else:
-                response += "✅ Достаточно средств для получения рекомендаций."
-            
-            markup = types.InlineKeyboardMarkup()
-            markup.row(types.InlineKeyboardButton("🔙 Главное меню", callback_data="menu_back"))
-            
-            bot.reply_to(message, response, reply_markup=markup)
-            
+        if user_id not in authorized_users or user_id not in user_credentials:
+            bot.reply_to(message, "❌ Необходимо авторизоваться.")
+            return
+
+        balance_resp = api_get_balance(user_id)
+        if not balance_resp["ok"]:
+            logger.error(f"Ошибка получения баланса: {balance_resp['status']}")
+            bot.reply_to(message, "❌ Произошла ошибка при получении баланса.")
+            return
+
+        balance = balance_resp["data"].get("Current balance", 0)
+        response = f"💳 Ваш текущий баланс: {balance} кредитов\n\n"
+
+        if balance < 10:
+            response += "⚠️ Недостаточно средств для получения рекомендаций.\n"
+            response += "Пополните баланс через веб-интерфейс: http://localhost/web"
+        else:
+            response += "✅ Достаточно средств для получения рекомендаций."
+
+        markup = types.InlineKeyboardMarkup()
+        markup.row(types.InlineKeyboardButton("🔙 Главное меню", callback_data="menu_back"))
+
+        bot.reply_to(message, response, reply_markup=markup)
     except Exception as e:
         logger.error(f"Ошибка получения баланса: {str(e)}")
         bot.reply_to(message, "❌ Произошла ошибка при получении баланса.")
